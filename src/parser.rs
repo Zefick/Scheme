@@ -12,8 +12,7 @@ enum Token {
     Integer(i32),
     Float(f64),
     Symbol(String),
-    String(String),
-    End
+    String(String)
 }
 
 
@@ -126,7 +125,6 @@ fn tokenize(source : &str) -> Result<Vec<Token>, ParseErr> {
             }
             ptr += 1;
         } else {
-            result.push(Token::End);
             break;
         }
     }
@@ -153,17 +151,12 @@ pub fn parse_expression(source : &str) -> Result<Vec<Object>, ParseErr> {
     }
     let tokens = &mut tokens.unwrap().into_iter();
     let mut program = Vec::<Object>::new();
-    loop {
-        if let Some(t) = tokens.next() {
-            if t == Token::End {
-                break;
-            }
-            let current = Cell::new(Object::Nil);
-            if let Some (e) = parse_object(&current, t, tokens) {
-                return Err(e);
-            }
-            program.push(current.take());
+    while let Some(t) = tokens.next() {
+        let current = Cell::new(Object::Nil);
+        if let Some (e) = parse_object(&current, t, tokens) {
+            return Err(e);
         }
+        program.push(current.take());
     }
     Ok(program)
 }
@@ -259,20 +252,19 @@ mod tests {
 
     #[test]
     fn lexer_test() {
-        assert_eq!(tokenize(" \t \n ; qqq ").unwrap(),
-                    vec![Token::End]);
+        assert!(tokenize(" \t \n ; qqq ").unwrap().is_empty());
 
         assert_eq!(tokenize("(.')").unwrap(),
-                    vec![Token::Lpar, Token::Dot, Token::Quote, Token::Rpar, Token::End]);
+                    vec![Token::Lpar, Token::Dot, Token::Quote, Token::Rpar]);
 
         assert_eq!(tokenize("\"str\" symbol").unwrap(),
                     vec![Token::String("str".to_string()),
-                        Token::Symbol("symbol".to_string()), Token::End]);
+                        Token::Symbol("symbol".to_string())]);
 
         assert_eq!(tokenize("42 3.14").unwrap(),
-                    vec![Token::Integer(42), Token::Float(3.14), Token::End]);
+                    vec![Token::Integer(42), Token::Float(3.14)]);
 
-        assert_eq!(tokenize("\"❤\"").unwrap()[0], Token::String("❤".to_string()));
+        assert_eq!(tokenize("\"❤\"").unwrap(), vec![Token::String("❤".to_string())]);
 
         assert!(tokenize("\"   ").is_err());
         assert!(tokenize("1.23.456").is_err());
