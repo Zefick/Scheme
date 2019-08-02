@@ -17,7 +17,7 @@ enum Token {
 
 
 #[derive(Debug)]
-pub struct ParseErr (String);
+pub struct ParseErr (pub String);
 
 
 const SYMBOLS_ALLOWED: &str = "+-.*/<=>!?:$%_&~^";
@@ -240,8 +240,8 @@ fn parse_list(current : &Cell<Object>, first: Token, rest : &mut Iterator<Item=T
 }
 
 pub fn debug_expression(input : &str) {
-    dbg!(tokenize(input));
-    dbg!(parse_expression(input));
+    print!("{:?}\n", tokenize(input));
+    print!("{:?}\n", parse_expression(input));
 }
 
 

@@ -1,5 +1,5 @@
 
-use std::boxed::Box;
+use std::rc::Rc;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 
@@ -10,7 +10,6 @@ pub enum Number {
     Integer(i32)
 }
 
-
 #[derive(PartialEq)]
 pub enum Object {
     Nil,
@@ -18,12 +17,16 @@ pub enum Object {
     Symbol(String),
     String(String),
     Number(Number),
-    Pair(Box<Object>, Box<Object>)
+    Pair(Rc<Object>, Rc<Object>),
+    Function(fn(Rc<Object>) -> Result<Rc<Object>, String>),
 }
 
 impl Object {
     pub fn make_pair(a : Object, b : Object) -> Object {
-        return Object::Pair(Box::new(a), Box::new(b));
+        return Object::Pair(Rc::new(a), Rc::new(b));
+    }
+    pub fn make_int(value : i32) -> Object {
+        return Object::Number(Number::Integer(value));
     }
 }
 
@@ -40,7 +43,8 @@ impl Debug for Object {
             Object::String(s) => write!(f, "\"{}\"", s),
             Object::Number(Number::Float(v)) => write!(f, "{}", v),
             Object::Number(Number::Integer(v)) => write!(f, "{}", v),
-            Object::Pair(a, b) => write!(f, "({:?} . {:?})", a, b)
+            Object::Pair(a, b) => write!(f, "({:?} . {:?})", a, b),
+            Object::Function(_) => write!(f, "<function>")
         }
     }
 }
