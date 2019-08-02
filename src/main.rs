@@ -18,7 +18,10 @@ fn main() {
             Ok(list) => {
                 let scope = &mut eval::get_global_scope();
                 for obj in list {
-                    print!("{:?}\n", eval::eval(Rc::new(obj), scope));
+                    match eval::eval(Rc::new(obj), scope) {
+                        Ok(x) => print!("{}\n", x),
+                        Err(s) => print!("Error: {}\n", s),
+                    }
                 }
             },
             Err(parser::ParseErr(s)) => {

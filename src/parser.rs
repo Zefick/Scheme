@@ -272,12 +272,22 @@ mod tests {
 
     #[test]
     fn parser_test() {
-        assert_eq!(parse_expression("2").unwrap()[0],
-                    Object::Number(Number::Integer(2)));
+        assert_eq!(parse_expression("2").unwrap(), vec![Object::make_int(2)]);
+
+        assert_eq!(parse_expression("()").unwrap(), vec![Object::Nil]);
+
+        assert_eq!(parse_expression("(1)").unwrap(),
+                   vec![Object::make_pair(Object::make_int(1), Object::Nil)]);
                     
-        assert_eq!(parse_expression("(1 . a)").unwrap()[0],
-                    Object::make_pair(Object::Number(Number::Integer(1)),
-                                      Object::Symbol("a".to_string())));
+        assert_eq!(parse_expression("(1 . a)").unwrap(),
+                   vec![Object::make_pair(Object::make_int(1),
+                                          Object::Symbol("a".to_string()))]);
+
+        assert_eq!(parse_expression("1 (2 3) ()").unwrap(),
+                   vec![Object::make_int(1),
+                        Object::make_pair(Object::make_int(2),
+                                          Object::make_pair(Object::make_int(3), Object::Nil)),
+                        Object::Nil]);
 
         assert!(parse_expression("(").is_err());
         assert!(parse_expression("(1 .").is_err());

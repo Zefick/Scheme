@@ -7,7 +7,7 @@ use std::rc::Rc;
 ///Converts lists to Vec of references to its elements.
 fn list_to_vec(mut obj : &Object) -> Result<Vec<&Object>, String> {
     let mut result = Vec::<&Object>::new();
-    while *obj != Object::Nil {
+    while !obj.is_nil() {
         match obj {
             Object::Pair(a, b) => {
                 result.push(a.as_ref());
