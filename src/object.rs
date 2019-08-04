@@ -22,13 +22,16 @@ pub enum Object {
 
 impl Object {
     pub fn make_pair(a : Object, b : Object) -> Object {
-        return Object::Pair(Rc::new(a), Rc::new(b));
+        Object::Pair(Rc::new(a), Rc::new(b))
     }
     pub fn make_int(value : i32) -> Object {
-        return Object::Number(Number::Integer(value));
+        Object::Number(Number::Integer(value))
     }
     pub fn is_nil(&self) -> bool {
-        return self == &Object::Nil;
+        *self == Object::Nil
+    }
+    pub fn is_true(&self) -> bool {
+        *self != Object::Boolean(false)
     }
 }
 
@@ -40,7 +43,7 @@ impl Debug for Object {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
             Object::Nil => write!(f, "()"),
-            Object::Boolean(b) => write!(f, "{}", b),
+            Object::Boolean(b) => write!(f, "{}", (if *b {"#t"} else {"#f"})),
             Object::Symbol(s) => write!(f, "{}", s),
             Object::String(s) => write!(f, "\"{}\"", s),
             Object::Number(Number::Float(v)) => write!(f, "{}", v),
@@ -72,12 +75,18 @@ impl Display for Object {
     }
 }
 
+#[cfg(test)]
 mod tests {
 
     use super::*;
 
     #[test]
     fn test_format() {
+        assert_eq!(format!("{}", Object::Nil), "()");
+
+        let obj = Object::make_pair(Object::Boolean(true), Object::Boolean(false));
+        assert_eq!(format!("{}", obj), "(#t . #f)");
+
         let obj = Object::make_pair(Object::make_int(1), Object::Nil);
         assert_eq!(format!("{}", obj), "(1)");
 

@@ -20,7 +20,7 @@ enum Token {
 pub struct ParseErr (pub String);
 
 
-const SYMBOLS_ALLOWED: &str = "+-.*/<=>!?:$%_&~^";
+const SYMBOLS_ALLOWED: &str = "+-.*/<=>!?:$%_&~^#";
 
 
 fn parse_number(source : &[char]) -> Result<(usize, Token), ParseErr> {
