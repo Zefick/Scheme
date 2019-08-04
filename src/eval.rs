@@ -84,6 +84,26 @@ pub fn get_global_scope() -> HashMap<String, Rc<Object>> {
     return scope;
 }
 
+fn eval_args(args : &Object, scope : &HashMap<String, Rc<Object>>) -> Result<Rc<Object>, String> {
+    match args {
+        Object::Pair(a, b) => {
+            return eval(Rc::clone(a), scope)
+                .and_then(move |head| eval_args(b, scope)
+                    .and_then(move |tail| Ok(Rc::new(Object::Pair(head, tail)))))
+        },
+        _ => Ok(Rc::new(Object::Nil))
+    }
+}
+
+fn quote(args : &Object) -> Result<Rc<Object>, String> {
+    match args {
+        Object::Pair(a, _) => {
+            Ok(Rc::clone(a))
+        },
+        _ => Err(format!("illegal argument for 'quote': {}", args))
+    }
+}
+
 pub fn eval(obj : Rc<Object>, scope : &HashMap<String, Rc<Object>>) -> Result<Rc<Object>, String> {
     match obj.as_ref() {
         // resolve a symbol
@@ -95,8 +115,16 @@ pub fn eval(obj : Rc<Object>, scope : &HashMap<String, Rc<Object>>) -> Result<Rc
             match eval(Rc::clone(func), scope) {
                 Ok(rc) =>
                     match rc.as_ref() {
-                        Object::Function(f) => f(Rc::clone(args)),
-                        _ => Err(format!("Illegal object used as a function: {:?}", func))
+                        Object::Symbol(s) => {
+                            if s == "quote" {
+                                return quote(args.as_ref());
+                            }
+                            Err(format!("Unbound symbol: {}", s))
+                        },
+                        Object::Function(f) => {
+                            eval_args(args, scope).and_then(f)
+                        },
+                        _ => Err(format!("Illegal object used as a function: {}", func))
                     }
                 ,
                 e => e
@@ -114,21 +142,19 @@ mod tests {
     use super::*;
     use crate::parser::parse_expression;
 
+    fn assert_expr(expr : &str, expected : Object) {
+        let scope = &get_global_scope();
+        let obj = parse_expression(expr).unwrap().pop().unwrap();
+        assert_eq!(eval(Rc::new(obj), scope), Ok(Rc::new(expected)));
+    }
+
     #[test]
     fn eval_test() {
-        let scope = &get_global_scope();
-
-        let obj = parse_expression("(car (1 . 2))").unwrap().pop().unwrap();
-        assert_eq!(eval(Rc::new(obj), scope),
-                   Ok(Rc::new(Object::Number(Number::Integer(1)))));
-
-        let obj = parse_expression("(cdr (1 . 2))").unwrap().pop().unwrap();
-        assert_eq!(eval(Rc::new(obj), scope),
-                   Ok(Rc::new(Object::Number(Number::Integer(2)))));
-
-        let obj = parse_expression("(length (1 2 3))").unwrap().pop().unwrap();
-        assert_eq!(eval(Rc::new(obj), scope),
-                   Ok(Rc::new(Object::Number(Number::Integer(3)))));
+        assert_expr("'1", Object::make_int(1));
+        assert_expr("(car '(1 . 2))", Object::make_int(1));
+        assert_expr("(cdr '(1 . 2))", Object::make_int(2));
+        assert_expr("(car (cdr '(1 2 3)))", Object::make_int(2));
+        assert_expr("(length '(1 2 3))", Object::make_int(3));
     }
 
 }
