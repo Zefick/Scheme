@@ -153,7 +153,7 @@ pub fn parse_expression(source : &str) -> Result<Vec<Object>, ParseErr> {
     let mut program = Vec::<Object>::new();
     while let Some(t) = tokens.next() {
         let current = Cell::new(Object::Nil);
-        if let Some (e) = parse_object(&current, t, tokens) {
+        if let Err(e) = parse_object(&current, t, tokens) {
             return Err(e);
         }
         program.push(current.take());
@@ -167,35 +167,32 @@ pub fn parse_expression(source : &str) -> Result<Vec<Object>, ParseErr> {
  * object  ::=  number | symbol | string
  */
 fn parse_object(current : &Cell<Object>, first: Token, rest : &mut Iterator<Item=Token>)
-            -> Option<ParseErr> {
+            -> Result<(), ParseErr> {
     match first {
         Token::Symbol(s) => current.set(Object::Symbol(s)),
         Token::String(s) => current.set(Object::String(s)),
         Token::Float(value) => current.set(Object::Number(Number::Float(value))),
         Token::Integer(value) => current.set(Object::Number(Number::Integer(value))),
         Token::Quote => {
-            if let Some(t) = rest.next() {
-                match parse_object(current, t, rest) {
-                    None => {
-                        current.set(Object::make_pair(
-                                Object::Symbol("quote".to_string()),
-                                Object::make_pair(current.take(), Object::Nil)));
-                    }
-                    Some(e) => return Some(e)
-                }
-            } else {
-                return Some(ParseErr("Unexpected end of input".to_string()));
-            }
+            return rest.next().map(|t| {
+                 parse_object(current, t, rest).and_then(|_| {
+                     current.set(Object::make_pair(
+                            Object::Symbol("quote".to_string()),
+                            Object::make_pair(current.take(), Object::Nil)));
+                     Ok(())
+                 })
+            }).unwrap_or_else(||
+                Err(ParseErr("Unexpected end of input".to_string())));
         },
         Token::Lpar => {
-            return match rest.next() {
-                Some(t) => parse_list(current, t, rest),
-                None => Some(ParseErr("Unexpected end of input after opening parenthesis".to_string()))
-            }
+            return rest.next().map(|t|
+                parse_list(current, t, rest)
+            ).unwrap_or_else(||
+                Err(ParseErr("Unexpected end of input after opening parenthesis".to_string())));
         },
-        _ => return Some(ParseErr(format!("Unexpected token: {:?}", first)))
+        _ => return Err(ParseErr(format!("Unexpected token: {:?}", first)))
     };
-    return None;
+    return Ok(());
 }
 
 /**
@@ -204,37 +201,30 @@ fn parse_object(current : &Cell<Object>, first: Token, rest : &mut Iterator<Item
  * list  ::=  object list
  */
 fn parse_list(current : &Cell<Object>, first: Token, rest : &mut Iterator<Item=Token>)
-            -> Option<ParseErr> {
+            -> Result<(), ParseErr> {
     match first {
-        Token::Rpar => None,
+        Token::Rpar => Ok(()),
         Token::Dot => {
-            if let Some(t) = rest.next() {
-                if let Some(e) = parse_object(current, t, rest) {
-                    return Some(e);
-                }
-            } else {
-                return Some(ParseErr("Unexpected end of input after a dot".to_string()));
-            }
-            match rest.next() {
-                Some(Token::Rpar) => None,
-                Some(t) => Some(ParseErr(format!("Closing parenthesis expected ({:?} found)", t))),
-                None => Some(ParseErr("Closing parenthesis expected (found end of input)".to_string()))
-            }
+            rest.next().map(|t| {
+                parse_object(current, t, rest).and_then(|_| {
+                    match rest.next() {
+                        Some(Token::Rpar) => Ok(()),
+                        Some(t) => Err(ParseErr(format!("Closing parenthesis expected ({:?} found)", t))),
+                        None => Err(ParseErr("Closing parenthesis expected (found end of input)".to_string()))
+                    }
+                })
+            }).unwrap_or_else(|| Err(ParseErr("Unexpected end of input after a dot".to_string())))
         },
         _ => {
-            if let Some(e) = parse_object(current, first, rest) {
-                return Some(e);
-            }
-            let head = current.take();
-            if let Some(t) = rest.next() {
-                if let Some(e) = parse_list(current, t, rest) {
-                    return Some(e);
-                }
-                current.set(Object::make_pair(head, current.take()));
-            } else {
-                return Some(ParseErr("Unexpected end of input".to_string()));
-            }
-            None
+            parse_object(current, first, rest).and_then(|_| {
+                let head = current.take();
+                rest.next().map(|t| {
+                    parse_list(current, t, rest).and_then(|_| {
+                        current.set(Object::make_pair(head, current.take()));
+                        Ok(())
+                    })
+                }).unwrap_or_else(|| Err(ParseErr("Unexpected end of input".to_string())))
+            })
         }
     }
 }
