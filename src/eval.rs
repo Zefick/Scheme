@@ -1,6 +1,6 @@
 
-use super::object::*;
-use std::collections::HashMap;
+use crate::object::*;
+use crate::scope::*;
 use std::rc::Rc;
 
 
@@ -41,20 +41,20 @@ fn check_pair(obj : &Object) -> Result<(&Rc<Object>, &Rc<Object>), String> {
 }
 
 /// Returns a first element of a list or a pair.
-fn car(obj : Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn car(obj : Rc<Object>) -> Result<Rc<Object>, String> {
     expect_args(obj.as_ref(), "car", 1).and_then(|vec| {
         check_pair(vec.get(0).unwrap()).map(|x| Rc::clone(&x.0))
     })
 }
 
 /// Returns a second element of a pair which is all elements after first for lists.
-fn cdr(obj : Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn cdr(obj : Rc<Object>) -> Result<Rc<Object>, String> {
     expect_args(obj.as_ref(), "cdr", 1).and_then(|vec| {
         check_pair(vec.get(0).unwrap()).map(|x| Rc::clone(&x.1))
     })
 }
 
-fn length(obj : Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn length(obj : Rc<Object>) -> Result<Rc<Object>, String> {
     expect_args(obj.as_ref(), "length", 1).and_then(|vec| {
         list_to_vec(vec.get(0).unwrap())
                 .map(|x| Rc::new(Object::make_int(x.len() as i32)))
@@ -62,17 +62,7 @@ fn length(obj : Rc<Object>) -> Result<Rc<Object>, String> {
 }
 
 
-pub fn get_global_scope() -> HashMap<String, Rc<Object>> {
-    let mut scope = HashMap::<String, Rc<Object>>::new();
-    scope.insert("#t".to_string(), Rc::new(Object::Boolean(true)));
-    scope.insert("#f".to_string(), Rc::new(Object::Boolean(false)));
-    scope.insert("car".to_string(), Rc::new(Object::Function(car)));
-    scope.insert("cdr".to_string(), Rc::new(Object::Function(cdr)));
-    scope.insert("length".to_string(), Rc::new(Object::Function(length)));
-    return scope;
-}
-
-fn eval_args(args : &Object, scope : &HashMap<String, Rc<Object>>) -> Result<Rc<Object>, String> {
+fn eval_args(args : &Object, scope : &Scope) -> Result<Rc<Object>, String> {
     match args {
         Object::Pair(a, b) => {
             return eval(Rc::clone(a), scope)
@@ -92,7 +82,7 @@ fn quote(args : &Object) -> Result<Rc<Object>, String> {
     }
 }
 
-fn fn_if(args : &Object, scope : &HashMap<String, Rc<Object>>) -> Result<Rc<Object>, String> {
+fn fn_if(args : &Object, scope : &Scope) -> Result<Rc<Object>, String> {
     expect_args(args, "if", 3).and_then(|vec| {
         let mut vec = vec.into_iter();
         eval(Rc::clone(vec.next().unwrap()), scope).and_then(|val| {
@@ -104,7 +94,7 @@ fn fn_if(args : &Object, scope : &HashMap<String, Rc<Object>>) -> Result<Rc<Obje
     })
 }
 
-pub fn eval(obj : Rc<Object>, scope : &HashMap<String, Rc<Object>>) -> Result<Rc<Object>, String> {
+pub fn eval(obj : Rc<Object>, scope : &Scope) -> Result<Rc<Object>, String> {
     match obj.as_ref() {
         // resolve a symbol
         Object::Symbol(s) => {

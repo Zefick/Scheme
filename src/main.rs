@@ -2,6 +2,7 @@
 mod parser;
 mod object;
 mod eval;
+mod scope;
 
 use std::io::*;
 use std::rc::Rc;
@@ -16,7 +17,7 @@ fn main() {
 
         let _ = match parser::parse_expression(&s) {
             Ok(list) => {
-                let scope = &mut eval::get_global_scope();
+                let scope = &scope::get_global_scope();
                 for obj in list {
                     match eval::eval(Rc::new(obj), scope) {
                         Ok(x) => print!("{}\n", x),
