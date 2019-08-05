@@ -2,8 +2,6 @@
 use super::object::*;
 use std::cell::Cell;
 
-#[allow(dead_code)]
-
 
 #[derive(PartialEq, Debug)]
 enum Token {
