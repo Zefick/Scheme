@@ -21,9 +21,9 @@ fn main() {
         }
         match parser::parse_expression(&s) {
             Ok(list) => {
-                let scope = &scope::get_global_scope();
+                let scope = Rc::new(scope::get_global_scope());
                 for obj in list {
-                    match eval::eval(Rc::new(obj), scope) {
+                    match eval::eval(Rc::new(obj), Rc::clone(&scope)) {
                         Ok(x) => print!("{}\n", x),
                         Err(s) => print!("Error: {}\n", s),
                     }
