@@ -3,9 +3,11 @@ mod parser;
 mod object;
 mod eval;
 mod scope;
+mod functions;
 
 use std::io::*;
 use std::rc::Rc;
+use std::cell::RefCell;
 
 #[allow(unused)]
 
@@ -21,7 +23,7 @@ fn main() {
         }
         match parser::parse_expression(&s) {
             Ok(list) => {
-                let scope = Rc::new(scope::get_global_scope());
+                let scope = Rc::new(RefCell::new(scope::get_global_scope()));
                 for obj in list {
                     match eval::eval(Rc::new(obj), Rc::clone(&scope)) {
                         Ok(x) => print!("{}\n", x),

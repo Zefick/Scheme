@@ -1,11 +1,13 @@
 
 use crate::object::*;
 use crate::scope::*;
+use crate::functions::*;
 use std::rc::Rc;
+use std::cell::RefCell;
 
 
 /// Converts lists to Vec of references to its elements.
-fn list_to_vec(mut obj : &Object) -> Result<Vec<Rc<Object>>, String> {
+pub fn list_to_vec(mut obj : &Object) -> Result<Vec<Rc<Object>>, String> {
     let mut result = Vec::<Rc<Object>>::new();
     while !obj.is_nil() {
         match obj {
@@ -20,7 +22,7 @@ fn list_to_vec(mut obj : &Object) -> Result<Vec<Rc<Object>>, String> {
 }
 
 /// Ensures that given object is a list with length `n`
-fn expect_args(args : &Object, func : &str, n : usize) -> Result<Vec<Rc<Object>>, String> {
+pub fn expect_args(args : &Object, func : &str, n : usize) -> Result<Vec<Rc<Object>>, String> {
     list_to_vec(args).and_then(|vec| {
         if vec.len() != n {
             Err(format!("Wrong number or arguments for '{}': {}", func, vec.len()))
@@ -33,41 +35,19 @@ fn expect_args(args : &Object, func : &str, n : usize) -> Result<Vec<Rc<Object>>
 /// Ensures that given object is a pair or returns an Err.
 /// Since Rust doesn't support types for enum variants,
 /// we are forced to use a tuple for the Ok value.
-fn check_pair(obj : &Object) -> Result<(&Rc<Object>, &Rc<Object>), String> {
+pub fn check_pair(obj : &Object) -> Result<(&Rc<Object>, &Rc<Object>), String> {
     match obj {
         Object::Pair(x, y) => Ok((x, y)),
         x => Err(format!("pair required but got {:?}", x).to_string())
     }
 }
 
-/// Returns a first element of a list or a pair.
-pub fn car(obj : Rc<Object>,  _ : Rc<Scope>) -> Result<Rc<Object>, String> {
-    expect_args(obj.as_ref(), "car", 1).and_then(|vec| {
-        check_pair(vec.get(0).unwrap()).map(|x| Rc::clone(x.0))
-    })
-}
-
-/// Returns a second element of a pair which is all elements after first for lists.
-pub fn cdr(obj : Rc<Object>, _ : Rc<Scope>) -> Result<Rc<Object>, String> {
-    expect_args(obj.as_ref(), "cdr", 1).and_then(|vec| {
-        check_pair(vec.get(0).unwrap()).map(|x| Rc::clone(x.1))
-    })
-}
-
-pub fn length(obj : Rc<Object>, _ : Rc<Scope>) -> Result<Rc<Object>, String> {
-    expect_args(obj.as_ref(), "length", 1).and_then(|vec| {
-        list_to_vec(vec.get(0).unwrap())
-                .map(|x| Rc::new(Object::make_int(x.len() as i32)))
-    })
-}
-
-
-fn eval_args(args : &Object, scope : Rc<Scope>) -> Result<Rc<Object>, String> {
+pub fn eval_args(args : &Object, scope : Rc<RefCell<Scope>>) -> Result<Rc<Object>, String> {
     match args {
         Object::Pair(a, b) => {
             eval(Rc::clone(a), Rc::clone(&scope))
-                .and_then(move |head| eval_args(b, scope)
-                    .and_then(move |tail| Ok(Rc::new(Object::Pair(head, tail)))))
+                .and_then(|head| eval_args(b, scope)
+                    .and_then(|tail| Ok(Rc::new(Object::Pair(head, tail)))))
         },
         _ => Ok(Rc::new(Object::Nil))
     }
@@ -80,7 +60,7 @@ fn quote(args : &Object) -> Result<Rc<Object>, String> {
     }
 }
 
-fn fn_if(args : &Object, scope : Rc<Scope>) -> Result<Rc<Object>, String> {
+fn fn_if(args : &Object, scope : Rc<RefCell<Scope>>) -> Result<Rc<Object>, String> {
     expect_args(args, "if", 3).and_then(|vec| {
         let mut vec = vec.into_iter();
         eval(vec.next().unwrap(), Rc::clone(&scope)).and_then(|val| {
@@ -92,7 +72,7 @@ fn fn_if(args : &Object, scope : Rc<Scope>) -> Result<Rc<Object>, String> {
     })
 }
 
-fn fn_let(args : &Object, scope : Rc<Scope>) -> Result<Rc<Object>, String> {
+fn fn_let(args : &Object, scope : Rc<RefCell<Scope>>) -> Result<Rc<Object>, String> {
     list_to_vec(args).and_then(|vec| {
         if vec.len() < 2 {
             Err(format!("'let' need at least 2 arguments, {} found", vec.len()))
@@ -121,15 +101,14 @@ fn fn_let(args : &Object, scope : Rc<Scope>) -> Result<Rc<Object>, String> {
                     return Err(result.err().unwrap());
                 }
             }
-            return Ok(bindings);
-        }).and_then(|bindings| {
             fn_begin_vec(let_args.into_iter().skip(1),
-                         Rc::new(Scope::new(bindings.as_slice(), Some(scope))))
+                         Rc::new(RefCell::new(Scope::new(bindings.as_slice(), Some(scope)))))
         })
     })
 }
 
-fn fn_begin_vec(args : impl ExactSizeIterator<Item=Rc<Object>>, scope : Rc<Scope>) -> Result<Rc<Object>, String> {
+fn fn_begin_vec(args : impl ExactSizeIterator<Item=Rc<Object>>, scope : Rc<RefCell<Scope>>)
+                    -> Result<Rc<Object>, String> {
     if args.len() == 0 {
         return Err("'begin' need at least 1 argument".to_string());
     }
@@ -143,37 +122,53 @@ fn fn_begin_vec(args : impl ExactSizeIterator<Item=Rc<Object>>, scope : Rc<Scope
     return Ok(result.unwrap());
 }
 
-
-pub fn fn_begin(args : Rc<Object>, scope : Rc<Scope>) -> Result<Rc<Object>, String> {
-    list_to_vec(args.as_ref())
-        .and_then(|args| fn_begin_vec(args.into_iter(), scope))
+pub fn fn_begin(args : &Object, scope : Rc<RefCell<Scope>>) -> Result<Rc<Object>, String> {
+    list_to_vec(args).and_then(|args| fn_begin_vec(args.into_iter(), scope))
 }
 
+pub fn fn_define(args : &Object, scope : Rc<RefCell<Scope>>) -> Result<(), String> {
+    expect_args(args, "define", 2).and_then(|vec| {
+        match vec.get(0).unwrap().as_ref() {
+            Object::Symbol(s) =>
+                eval(Rc::clone(vec.get(1).unwrap()), Rc::clone(&scope))
+                    .map(|obj| scope.as_ref().borrow_mut().bind(s.to_string(), obj)),
+            Object::Pair(_, _) => {
+                // TODO: function objects
+                Ok(())
+            },
+            x => Err(format!("illegal argument for 'define': {}", x).to_string())
+        }
+    })
+}
 
-pub fn eval(obj : Rc<Object>, scope : Rc<Scope>) -> Result<Rc<Object>, String> {
+pub fn eval(obj : Rc<Object>, scope : Rc<RefCell<Scope>>) -> Result<Rc<Object>, String> {
     match obj.as_ref() {
         // resolve a symbol
         Object::Symbol(s) => {
-            Ok(Rc::clone(scope.get(s).unwrap_or(&obj)))
+            Ok(scope.borrow().get(s).unwrap_or(obj))
         },
         // invoke a function
         Object::Pair(func, args) => {
             eval(Rc::clone(func), Rc::clone(&scope)).and_then(|rc| {
+                let new_scope = Rc::new(RefCell::new(Scope::new(&[], Some(Rc::clone(&scope)))));
                 match rc.as_ref() {
                     Object::Symbol(s) => {
                         return if s == "quote" {
                             quote(args.as_ref())
                         } else if s == "if" {
-                            fn_if(args.as_ref(), scope)
+                            fn_if(args.as_ref(), new_scope)
                         } else if s == "let" {
-                            fn_let(args.as_ref(), scope)
+                            fn_let(args.as_ref(), new_scope)
+                        } else if s == "begin" {
+                            fn_begin(args.as_ref(), new_scope)
+                        } else if s == "define" {
+                            fn_define(args.as_ref(), scope).map(|_| Rc::new(Object::Nil))
                         } else {
                             Err(format!("expected a function, found unbound symbol '{}'", s))
                         }
                     },
-                    Object::Function(f) => {
-                        eval_args(args, Rc::clone(&scope))
-                            .and_then(|args| f(args, scope))
+                    Object::Function(Function::Pointer(f)) => {
+                        eval_args(args, scope).and_then(|args| f(args, new_scope))
                     },
                     _ => Err(format!("Illegal object used as a function: {:?}", func))
                 }
@@ -194,7 +189,8 @@ mod tests {
     fn assert_expr(expr : &str, expected : Object) {
         let scope = get_global_scope();
         let obj = parse_expression(expr).unwrap().pop().unwrap();
-        assert_eq!(eval(Rc::new(obj), Rc::new(scope)), Ok(Rc::new(expected)));
+        assert_eq!(eval(Rc::new(obj), Rc::new(RefCell::new(scope))),
+                   Ok(Rc::new(expected)));
     }
 
     #[test]
@@ -210,8 +206,8 @@ mod tests {
 
         assert_expr("(let ((x 2)) x)", Object::make_int(2));
         assert_expr("(let ((x car) (y '(1 2 3))) (x y))", Object::make_int(1));
-
-        assert_expr("(begin 1 2 3)", Object::make_int(3));
+        assert_expr("(begin (define x 5) (cons (begin (define x 2) x) x))",
+                    Object::make_pair(Object::make_int(2), Object::make_int(5)));
     }
 
 }

@@ -1,7 +1,7 @@
 
 use std::rc::Rc;
 use std::fmt::{Debug, Display, Formatter};
-use crate::scope::Scope;
+use crate::functions::Function;
 
 
 #[derive(PartialEq, Debug)]
@@ -18,7 +18,7 @@ pub enum Object {
     String(String),
     Number(Number),
     Pair(Rc<Object>, Rc<Object>),
-    Function(fn(Rc<Object>, Rc<Scope>) -> Result<Rc<Object>, String>),
+    Function(Function),
 }
 
 impl Object {

@@ -164,7 +164,7 @@ pub fn parse_expression(source : &str) -> Result<Vec<Object>, ParseErr> {
  * object  ::=  'object
  * object  ::=  number | symbol | string
  */
-fn parse_object(current : &Cell<Object>, first: Token, rest : &mut Iterator<Item=Token>)
+fn parse_object(current : &Cell<Object>, first: Token, rest : &mut dyn Iterator<Item=Token>)
             -> Result<(), ParseErr> {
     match first {
         Token::Symbol(s) => current.set(Object::Symbol(s)),
@@ -198,7 +198,7 @@ fn parse_object(current : &Cell<Object>, first: Token, rest : &mut Iterator<Item
  * list  ::=  . object)
  * list  ::=  object list
  */
-fn parse_list(current : &Cell<Object>, first: Token, rest : &mut Iterator<Item=Token>)
+fn parse_list(current : &Cell<Object>, first: Token, rest : &mut dyn Iterator<Item=Token>)
             -> Result<(), ParseErr> {
     match first {
         Token::Rpar => Ok(()),
