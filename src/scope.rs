@@ -34,6 +34,7 @@ pub fn get_global_scope() -> Scope {
         ("#f".to_string(), Rc::new(Object::Boolean(false))),
         ("car".to_string(), Rc::new(Object::Function(car))),
         ("cdr".to_string(), Rc::new(Object::Function(cdr))),
-        ("length".to_string(), Rc::new(Object::Function(length)))
+        ("length".to_string(), Rc::new(Object::Function(length))),
+        ("begin".to_string(), Rc::new(Object::Function(fn_begin))),
     ], None);
 }

@@ -41,20 +41,20 @@ fn check_pair(obj : &Object) -> Result<(&Rc<Object>, &Rc<Object>), String> {
 }
 
 /// Returns a first element of a list or a pair.
-pub fn car(obj : Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn car(obj : Rc<Object>,  _ : Rc<Scope>) -> Result<Rc<Object>, String> {
     expect_args(obj.as_ref(), "car", 1).and_then(|vec| {
         check_pair(vec.get(0).unwrap()).map(|x| Rc::clone(x.0))
     })
 }
 
 /// Returns a second element of a pair which is all elements after first for lists.
-pub fn cdr(obj : Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn cdr(obj : Rc<Object>, _ : Rc<Scope>) -> Result<Rc<Object>, String> {
     expect_args(obj.as_ref(), "cdr", 1).and_then(|vec| {
         check_pair(vec.get(0).unwrap()).map(|x| Rc::clone(x.1))
     })
 }
 
-pub fn length(obj : Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn length(obj : Rc<Object>, _ : Rc<Scope>) -> Result<Rc<Object>, String> {
     expect_args(obj.as_ref(), "length", 1).and_then(|vec| {
         list_to_vec(vec.get(0).unwrap())
                 .map(|x| Rc::new(Object::make_int(x.len() as i32)))
@@ -123,19 +123,32 @@ fn fn_let(args : &Object, scope : Rc<Scope>) -> Result<Rc<Object>, String> {
             }
             return Ok(bindings);
         }).and_then(|bindings| {
-            let new_scope = Rc::new(Scope::new(bindings.as_slice(), Some(scope)));
-            let mut result : Option<Rc<Object>> = None;
-            for arg in let_args.into_iter().skip(1) {
-                match eval(arg, Rc::clone(&new_scope)) {
-                    Err(e) => return Err(e),
-                    Ok(val) => result = Some(val)
-                }
-            }
-            return Ok(result.unwrap());
-
+            fn_begin_vec(let_args.into_iter().skip(1),
+                         Rc::new(Scope::new(bindings.as_slice(), Some(scope))))
         })
     })
 }
+
+fn fn_begin_vec(args : impl ExactSizeIterator<Item=Rc<Object>>, scope : Rc<Scope>) -> Result<Rc<Object>, String> {
+    if args.len() == 0 {
+        return Err("'begin' need at least 1 argument".to_string());
+    }
+    let mut result : Option<Rc<Object>> = None;
+    for arg in args {
+        match eval(arg, Rc::clone(&scope)) {
+            Err(e) => return Err(e),
+            Ok(val) => result = Some(val)
+        }
+    }
+    return Ok(result.unwrap());
+}
+
+
+pub fn fn_begin(args : Rc<Object>, scope : Rc<Scope>) -> Result<Rc<Object>, String> {
+    list_to_vec(args.as_ref())
+        .and_then(|args| fn_begin_vec(args.into_iter(), scope))
+}
+
 
 pub fn eval(obj : Rc<Object>, scope : Rc<Scope>) -> Result<Rc<Object>, String> {
     match obj.as_ref() {
@@ -148,17 +161,19 @@ pub fn eval(obj : Rc<Object>, scope : Rc<Scope>) -> Result<Rc<Object>, String> {
             eval(Rc::clone(func), Rc::clone(&scope)).and_then(|rc| {
                 match rc.as_ref() {
                     Object::Symbol(s) => {
-                        if s == "quote" {
-                            return quote(args.as_ref());
+                        return if s == "quote" {
+                            quote(args.as_ref())
                         } else if s == "if" {
-                            return fn_if(args.as_ref(), scope);
+                            fn_if(args.as_ref(), scope)
                         } else if s == "let" {
-                            return fn_let(args.as_ref(), scope);
+                            fn_let(args.as_ref(), scope)
+                        } else {
+                            Err(format!("expected a function, found unbound symbol '{}'", s))
                         }
-                        Err(format!("expected a function, found unbound symbol '{}'", s))
                     },
                     Object::Function(f) => {
-                        eval_args(args, scope).and_then(f)
+                        eval_args(args, Rc::clone(&scope))
+                            .and_then(|args| f(args, scope))
                     },
                     _ => Err(format!("Illegal object used as a function: {:?}", func))
                 }
@@ -195,6 +210,8 @@ mod tests {
 
         assert_expr("(let ((x 2)) x)", Object::make_int(2));
         assert_expr("(let ((x car) (y '(1 2 3))) (x y))", Object::make_int(1));
+
+        assert_expr("(begin 1 2 3)", Object::make_int(3));
     }
 
 }
