@@ -186,28 +186,31 @@ mod tests {
     use super::*;
     use crate::parser::parse_expression;
 
-    fn assert_expr(expr : &str, expected : Object) {
+    fn assert_eval(expr : &str, expected: &str) {
         let scope = get_global_scope();
         let obj = parse_expression(expr).unwrap().pop().unwrap();
-        assert_eq!(eval(Rc::new(obj), Rc::new(RefCell::new(scope))),
-                   Ok(Rc::new(expected)));
+        eval(Rc::new(obj), Rc::new(RefCell::new(scope)))
+            .map(|obj| assert_eq!(format!("{}", obj), expected))
+            .unwrap_or_else(|err| panic!(err));
     }
 
     #[test]
     fn eval_test() {
-        assert_expr("'1", Object::make_int(1));
-        assert_expr("(car '(1 . 2))", Object::make_int(1));
-        assert_expr("(cdr '(1 . 2))", Object::make_int(2));
-        assert_expr("(car (cdr '(1 2 3)))", Object::make_int(2));
-        assert_expr("(length '(1 2 3))", Object::make_int(3));
+        assert_eval("'1", "1");
+        assert_eval("(car '(1 . 2))", "1");
+        assert_eval("(cdr '(1 . 2))", "2");
+        assert_eval("(car (cdr '(1 2 3)))", "2");
+        assert_eval("(length '(1 2 3))", "3");
+        assert_eval("(cons 1 2)", "(1 . 2)");
+        assert_eval("(list 1 2 3)", "(1 2 3)");
 
-        assert_expr("(if #t 1 2)", Object::make_int(1));
-        assert_expr("(if #f 1 2)", Object::make_int(2));
+        assert_eval("(if #t 1 2)", "1");
+        assert_eval("(if #f 1 2)", "2");
 
-        assert_expr("(let ((x 2)) x)", Object::make_int(2));
-        assert_expr("(let ((x car) (y '(1 2 3))) (x y))", Object::make_int(1));
-        assert_expr("(begin (define x 5) (cons (begin (define x 2) x) x))",
-                    Object::make_pair(Object::make_int(2), Object::make_int(5)));
+        assert_eval("(begin 1 2 3)", "3");
+        assert_eval("(let ((x 2)) x)", "2");
+        assert_eval("(let ((x car) (y '(1 2 3))) (x y))", "1");
+        assert_eval("(begin (define x 5) (cons (begin (define x 2) x) x))", "(2 . 5)");
     }
 
 }
