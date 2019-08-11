@@ -126,19 +126,51 @@ pub fn fn_begin(args : &Object, scope : Rc<RefCell<Scope>>) -> Result<Rc<Object>
     list_to_vec(args).and_then(|args| fn_begin_vec(args.into_iter(), scope))
 }
 
+/// There are two forms of define:
+///
+/// `(define id expr)` and `(define (id args...) expr...)`
+///
+/// Both syntax handled by this function. Defined value added to a current scope
 pub fn fn_define(args : &Object, scope : Rc<RefCell<Scope>>) -> Result<(), String> {
-    expect_args(args, "define", 2).and_then(|vec| {
-        match vec.get(0).unwrap().as_ref() {
-            Object::Symbol(s) =>
-                eval(Rc::clone(vec.get(1).unwrap()), Rc::clone(&scope))
-                    .map(|obj| scope.as_ref().borrow_mut().bind(s.to_string(), obj)),
-            Object::Pair(_, _) => {
-                // TODO: function objects
-                Ok(())
-            },
-            x => Err(format!("illegal argument for 'define': {}", x).to_string())
-        }
-    })
+    match args {
+        Object::Pair(head, expr) => {
+            match head.as_ref() {
+                // (define x expr)
+                Object::Symbol(s) => {
+                    match expr.as_ref() {
+                        Object::Pair(value, tail) => {
+                            if tail.as_ref() != &Object::Nil {
+                                Err("extra argument for 'define'".to_string())
+                            } else {
+                                eval(Rc::clone(value), Rc::clone(&scope))
+                                    .map(|obj| scope.as_ref().borrow_mut().bind(s.to_string(), obj))
+                            }
+                        },
+                        _ => Err(format!("proper list required for 'define': {}", args).to_string())
+                    }
+                },
+                // (define (name args) body)
+                Object::Pair(name, args) => {
+                    match name.as_ref() {
+                        Object::Symbol(s) => {
+                            let name = s.to_string();
+                            let obj = Rc::new(Object::Function(Function::Object {
+                                name: name.clone(),
+                                args: Rc::clone(args),
+                                body: Rc::clone(expr),
+                                scope: Rc::clone(&scope)
+                            }));
+                            scope.as_ref().borrow_mut().bind(name, obj);
+                            Ok(())
+                        },
+                        _ => Err(format!("expected symbol as a function name, found {}", name).to_string())
+                    }
+                },
+                x => Err(format!("proper list or symbol need for 'define', found: {}", x).to_string())
+            }
+        },
+        _ => Err(format!("a list expected for 'define' arguments, found {}", args))
+    }
 }
 
 pub fn eval(obj : Rc<Object>, scope : Rc<RefCell<Scope>>) -> Result<Rc<Object>, String> {
@@ -167,8 +199,8 @@ pub fn eval(obj : Rc<Object>, scope : Rc<RefCell<Scope>>) -> Result<Rc<Object>, 
                             Err(format!("expected a function, found unbound symbol '{}'", s))
                         }
                     },
-                    Object::Function(Function::Pointer(f)) => {
-                        eval_args(args, scope).and_then(|args| f(args, new_scope))
+                    Object::Function(f) => {
+                        eval_args(args, scope).and_then(|args| f.call(args))
                     },
                     _ => Err(format!("Illegal object used as a function: {:?}", func))
                 }
@@ -194,6 +226,13 @@ mod tests {
             .unwrap_or_else(|err| panic!(err));
     }
 
+    fn expect_err(expr: &str) {
+        let scope = get_global_scope();
+        let obj = parse_expression(expr).unwrap().pop().unwrap();
+        eval(Rc::new(obj), Rc::new(RefCell::new(scope)))
+            .expect_err(format!("error expected for {}", expr).as_str());
+    }
+
     #[test]
     fn eval_test() {
         assert_eval("'1", "1");
@@ -211,6 +250,13 @@ mod tests {
         assert_eval("(let ((x 2)) x)", "2");
         assert_eval("(let ((x car) (y '(1 2 3))) (x y))", "1");
         assert_eval("(begin (define x 5) (cons (begin (define x 2) x) x))", "(2 . 5)");
+
+        assert_eval("(begin (define (x)) x)", "<function>");
+        assert_eval("(begin (define (x a) (car a)) (x '(5 6)))", "5");
+        assert_eval("(begin (define (tail a . b) b) (tail 1 2 3))", "(2 3)");
+
+        expect_err("(begin (define (f a b c)) (f 1))");
+        expect_err("(begin (define (f a b c)) (f 1 2 3 4))");
     }
 
 }

@@ -18,7 +18,7 @@ impl Scope {
         self.map.get(key)
             .map(Rc::clone)
             .or_else(|| self.parent.as_ref()
-                .and_then(|p| p.borrow().map.get(key).map(Rc::clone)))
+                .and_then(|p| p.borrow().get(key)))
     }
     pub fn bind(&mut self, key: String, value: Rc<Object>) {
         self.map.insert(key, value);
