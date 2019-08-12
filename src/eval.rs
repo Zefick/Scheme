@@ -4,6 +4,7 @@ use crate::scope::*;
 use crate::functions::*;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::collections::HashSet;
 
 
 /// Converts lists to Vec of references to its elements.
@@ -154,16 +155,10 @@ pub fn fn_define(args : &Object, scope : Rc<RefCell<Scope>>) -> Result<(), Strin
                     match name.as_ref() {
                         Object::Symbol(s) => {
                             let name = s.to_string();
-                            let obj = Rc::new(Object::Function(Function::Object {
-                                name: name.clone(),
-                                args: Rc::clone(args),
-                                body: Rc::clone(expr),
-                                scope: Rc::clone(&scope)
-                            }));
-                            scope.as_ref().borrow_mut().bind(name, obj);
-                            Ok(())
+                            make_function(&name, args, expr, &scope)
+                                .map(|obj| scope.as_ref().borrow_mut().bind(name, Rc::new(obj)))
                         },
-                        _ => Err(format!("expected symbol as a function name, found {}", name).to_string())
+                        _ => Err(format!("expected symbol as a function name, found '{}'", name).to_string())
                     }
                 },
                 x => Err(format!("proper list or symbol need for 'define', found: {}", x).to_string())
@@ -171,6 +166,43 @@ pub fn fn_define(args : &Object, scope : Rc<RefCell<Scope>>) -> Result<(), Strin
         },
         _ => Err(format!("a list expected for 'define' arguments, found {}", args))
     }
+}
+
+
+pub fn make_function(name: &String, args: &Rc<Object>, body: &Rc<Object>, scope: &Rc<RefCell<Scope>>)
+        -> Result<Object, String> {
+    let mut list = args;
+    let mut vec = Vec::<&Rc<Object>>::new();
+    while let Object::Pair(head, tail) = list.as_ref() {
+        vec.push(head);
+        list = tail;
+    }
+    if !list.is_nil() {
+        vec.push(list);
+    }
+    let mut ids = HashSet::<&String>::new();
+    for id in vec {
+        if let Object::Symbol(s) = id.as_ref() {
+            if ids.contains(s) {
+                return Err(format!("duplication of argument id '{}'", s).to_string())
+            }
+            ids.insert(s);
+        } else {
+            return Err(format!("expected symbol for argument id, found '{}'", id).to_string())
+        }
+    }
+    Ok(Object::Function(Function::Object {
+        name: name.clone(),
+        args: Rc::clone(args),
+        body: Rc::clone(body),
+        scope: Rc::clone(scope)
+    }))
+}
+
+fn lambda (args : &Object, scope : Rc<RefCell<Scope>>) -> Result<Rc<Object>, String> {
+    check_pair(args).and_then(|(args, body)| {
+        make_function(&"#<lambda>".to_string(), args, body, &scope)
+    }).map(Rc::new)
 }
 
 pub fn eval(obj : Rc<Object>, scope : Rc<RefCell<Scope>>) -> Result<Rc<Object>, String> {
@@ -195,6 +227,8 @@ pub fn eval(obj : Rc<Object>, scope : Rc<RefCell<Scope>>) -> Result<Rc<Object>, 
                             fn_begin(args.as_ref(), new_scope)
                         } else if s == "define" {
                             fn_define(args.as_ref(), scope).map(|_| Rc::new(Object::Nil))
+                        } else if s == "lambda" {
+                            lambda(args.as_ref(), scope)
                         } else {
                             Err(format!("expected a function, found unbound symbol '{}'", s))
                         }
@@ -255,8 +289,14 @@ mod tests {
         assert_eval("(begin (define (x a) (car a)) (x '(5 6)))", "5");
         assert_eval("(begin (define (tail a . b) b) (tail 1 2 3))", "(2 3)");
 
-        expect_err("(begin (define (f a b c)) (f 1))");
-        expect_err("(begin (define (f a b c)) (f 1 2 3 4))");
+        assert_eval("((lambda x x) 1 2 3)", "(1 2 3)");
+        assert_eval("((lambda (x . y) y) 1 2 3)", "(2 3)");
+        assert_eval("(begin (define f (lambda (x) x)) (f 'foo))", "foo");
+
+        expect_err("(lambda (1) a)");             // wrong argument type
+        expect_err("(lambda (x x) x)");           // duplication of argument id
+        expect_err("((lambda (a b) a) 1)");       // too few arguments given
+        expect_err("((lambda (a b) a) 1 2 3)");   // too many arguments given
     }
 
 }
