@@ -4,6 +4,7 @@ use crate::object::Object;
 use crate::eval::*;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::collections::HashSet;
 
 
 pub enum Function {
@@ -52,9 +53,38 @@ impl Function {
                         _ => return Err(format!("wrong arguments list '{}'", args.as_ref()).to_string())
                     }
                 }
-                fn_begin(body, Rc::clone(scope))
+                fn_begin(body, &Rc::clone(scope))
             }
         }
+    }
+    pub fn new(name: &String, args: &Rc<Object>, body: &Rc<Object>, scope: &Rc<RefCell<Scope>>)
+            -> Result<Object, String> {
+        let mut list = args;
+        let mut vec = Vec::new();
+        while let Object::Pair(head, tail) = list.as_ref() {
+            vec.push(head);
+            list = tail;
+        }
+        if !list.is_nil() {
+            vec.push(list);
+        }
+        let mut ids = HashSet::<&String>::new();
+        for id in vec {
+            if let Object::Symbol(s) = id.as_ref() {
+                if ids.contains(s) {
+                    return Err(format!("duplication of argument id '{}'", s).to_string())
+                }
+                ids.insert(s);
+            } else {
+                return Err(format!("expected symbol for argument id, found '{}'", id).to_string())
+            }
+        }
+        Ok(Object::Function(Function::Object {
+            name: name.clone(),
+            args: Rc::clone(args),
+            body: Rc::clone(body),
+            scope: Rc::clone(scope)
+        }))
     }
 }
 
