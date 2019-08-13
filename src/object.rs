@@ -1,13 +1,11 @@
-
-use std::rc::Rc;
-use std::fmt::{Debug, Display, Formatter};
 use crate::functions::Function;
-
+use std::fmt::{Debug, Display, Formatter};
+use std::rc::Rc;
 
 #[derive(PartialEq, Debug)]
 pub enum Number {
     Float(f64),
-    Integer(i32)
+    Integer(i32),
 }
 
 #[derive(PartialEq)]
@@ -22,10 +20,10 @@ pub enum Object {
 }
 
 impl Object {
-    pub fn make_pair(a : Object, b : Object) -> Object {
+    pub fn make_pair(a: Object, b: Object) -> Object {
         Object::Pair(Rc::new(a), Rc::new(b))
     }
-    pub fn make_int(value : i32) -> Object {
+    pub fn make_int(value: i32) -> Object {
         Object::Number(Number::Integer(value))
     }
     pub fn is_nil(&self) -> bool {
@@ -37,20 +35,22 @@ impl Object {
 }
 
 impl Default for Object {
-    fn default() -> Self {Object::Nil}
+    fn default() -> Self {
+        Object::Nil
+    }
 }
 
 impl Debug for Object {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
             Object::Nil => write!(f, "()"),
-            Object::Boolean(b) => write!(f, "{}", (if *b {"#t"} else {"#f"})),
+            Object::Boolean(b) => write!(f, "{}", (if *b { "#t" } else { "#f" })),
             Object::Symbol(s) => write!(f, "{}", s),
             Object::String(s) => write!(f, "\"{}\"", s),
             Object::Number(Number::Float(v)) => write!(f, "{}", v),
             Object::Number(Number::Integer(v)) => write!(f, "{}", v),
             Object::Pair(a, b) => write!(f, "({:?} . {:?})", a, b),
-            Object::Function(_) => write!(f, "<function>")
+            Object::Function(_) => write!(f, "<function>"),
         }
     }
 }
@@ -70,8 +70,8 @@ impl Display for Object {
                     s += &(format!(" . {:?}", obj));
                 }
                 write!(f, "({}{})", head, s)
-            },
-            _ => (self as &dyn Debug).fmt(f)
+            }
+            _ => (self as &dyn Debug).fmt(f),
         }
     }
 }
@@ -94,8 +94,10 @@ mod tests {
         let obj = Object::make_pair(Object::make_int(1), Object::make_int(2));
         assert_eq!(format!("{}", obj), "(1 . 2)");
 
-        let obj = Object::make_pair(Object::make_int(1),
-                                    Object::make_pair(Object::make_int(2), Object::Nil));
+        let obj = Object::make_pair(
+            Object::make_int(1),
+            Object::make_pair(Object::make_int(2), Object::Nil),
+        );
         assert_eq!(format!("{}", obj), "(1 2)");
     }
 

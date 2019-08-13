@@ -1,13 +1,14 @@
-
-mod parser;
-mod object;
 mod eval;
-mod scope;
 mod functions;
+mod logic;
+mod object;
+mod parser;
+mod scope;
+mod lists;
 
+use std::cell::RefCell;
 use std::io::*;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 #[allow(unused)]
 
@@ -30,7 +31,7 @@ fn main() {
                         Err(s) => print!("Error: {}\n", s),
                     }
                 }
-            },
+            }
             Err(parser::ParseErr(s)) => {
                 print!("{}\n", s);
             }

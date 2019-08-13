@@ -2,6 +2,8 @@
 use crate::object::*;
 use crate::scope::*;
 use crate::functions::*;
+use crate::logic::*;
+
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -60,26 +62,11 @@ fn quote(args : &Object) -> Result<Rc<Object>, String> {
     }
 }
 
-fn fn_if(args : &Object, scope : &Rc<RefCell<Scope>>) -> Result<Rc<Object>, String> {
-    expect_args(args, "if", 3).and_then(|vec| {
-        let mut vec = vec.into_iter();
-        eval(&vec.next().unwrap(), scope).and_then(|val| {
-            if !val.is_true() {
-                vec.next();
-            }
-            eval(&vec.next().unwrap(), scope)
-        })
-    })
-}
-
 fn fn_let(args : &Object, scope : &Rc<RefCell<Scope>>) -> Result<Rc<Object>, String> {
-    list_to_vec(args).and_then(|vec| {
-        if vec.len() < 2 {
-            Err(format!("'let' need at least 2 arguments, {} found", vec.len()))
-        } else {
-            Ok(vec)
+    list_to_vec(args).and_then(|let_args| {
+        if let_args.len() < 2 {
+            return Err(format!("'let' need at least 2 arguments, {} found", let_args.len()));
         }
-    }).and_then(|let_args| {
         list_to_vec(let_args.get(0).unwrap()).and_then(|args| {
             let mut bindings = Vec::new();
             for arg in args {
@@ -103,12 +90,12 @@ fn fn_let(args : &Object, scope : &Rc<RefCell<Scope>>) -> Result<Rc<Object>, Str
             }
             fn_begin_vec(let_args.into_iter().skip(1),
                          &Rc::new(RefCell::new(
-                             Scope::new(bindings.as_slice(), Some(Rc::clone(scope))))))
+                             Scope::new(bindings.as_slice(), Some(scope)))))
         })
     })
 }
 
-fn fn_begin_vec(args : impl ExactSizeIterator<Item=Rc<Object>>, scope : &Rc<RefCell<Scope>>)
+pub fn fn_begin_vec(args : impl Iterator<Item=Rc<Object>>, scope : &Rc<RefCell<Scope>>)
                     -> Result<Rc<Object>, String> {
     let mut result : Option<Rc<Object>> = None;
     for arg in args {
@@ -117,11 +104,15 @@ fn fn_begin_vec(args : impl ExactSizeIterator<Item=Rc<Object>>, scope : &Rc<RefC
             Ok(val) => result = Some(val)
         }
     }
-    result.ok_or_else(|| "'begin' need at least 1 argument".to_string())
+    Ok(result.unwrap_or_else(undef))
 }
 
 pub fn fn_begin(args : &Object, scope : &Rc<RefCell<Scope>>) -> Result<Rc<Object>, String> {
     list_to_vec(args).and_then(|args| fn_begin_vec(args.into_iter(), scope))
+}
+
+pub fn undef() -> Rc<Object> {
+    Rc::new(Object::Symbol("#<undef>".to_string()))
 }
 
 /// There are two forms of define:
@@ -188,7 +179,7 @@ pub fn eval(obj : &Rc<Object>, scope : &Rc<RefCell<Scope>>) -> Result<Rc<Object>
                 } else if s == "let" {
                     return fn_let(args, scope)
                 } else if s == "begin" {
-                    let new_scope = Rc::new(RefCell::new(Scope::new(&[], Some(Rc::clone(&scope)))));
+                    let new_scope = Rc::new(RefCell::new(Scope::new(&[], Some(scope))));
                     return fn_begin(args, &new_scope)
                 } else if s == "define" {
                     return fn_define(args, scope).map(|_| Rc::new(Object::Nil))
@@ -198,6 +189,8 @@ pub fn eval(obj : &Rc<Object>, scope : &Rc<RefCell<Scope>>) -> Result<Rc<Object>
                     return logic_and(args, scope)
                 } else if s == "or" {
                     return logic_or(args, scope)
+                } else if s == "cond" {
+                    return cond(args, scope)
                 }
             }
             eval(func, scope).and_then(|rc| {
@@ -260,6 +253,19 @@ mod tests {
         assert_eval("((lambda x x) 1 2 3)", "(1 2 3)");
         assert_eval("((lambda (x . y) y) 1 2 3)", "(2 3)");
         assert_eval("(begin (define f (lambda (x) x)) (f 'foo))", "foo");
+
+        assert_eval("(or 5 '(foo) #f)", "5");
+        assert_eval("(and 5 '(foo) 42)", "42");
+        assert_eval("(cons (boolean? #f) (boolean? 5))", "(#t . #f)");
+        assert_eval("(cons (pair? '(1 2)) (pair? 5))", "(#t . #f)");
+        assert_eval("(cons (list? '(1 2)) (list? 5))", "(#t . #f)");
+        assert_eval("(cons (not #f) (not 5))", "(#t . #f)");
+
+        assert_eval("(cond (#f 42) ('foo))", "foo");
+        assert_eval("(cond (#f 42) (5 'foo))", "foo");
+        assert_eval("(cond (#f 42))", "#<undef>");
+        assert_eval("(cond (#f 42) (else))", "#<undef>");
+        assert_eval("(cond (#f 42) (else 1 2))", "2");
 
         expect_err("(list a)");                   // unbound variable
         expect_err("(lambda (1) a)");             // wrong argument type
