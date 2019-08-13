@@ -175,34 +175,36 @@ pub fn eval(obj : &Rc<Object>, scope : &Rc<RefCell<Scope>>) -> Result<Rc<Object>
     match obj.as_ref() {
         // resolve a symbol
         Object::Symbol(s) => {
-            Ok(scope.borrow().get(s).unwrap_or(Rc::clone(obj)))
+            scope.borrow().get(s)
+                .ok_or_else(|| format!("unbound variable '{}'", s).to_string())
         },
         // invoke a function
         Object::Pair(func, args) => {
+            if let Object::Symbol(s) = func.as_ref() {
+                if s == "quote" {
+                    return quote(args)
+                } else if s == "if" {
+                    return fn_if(args, scope)
+                } else if s == "let" {
+                    return fn_let(args, scope)
+                } else if s == "begin" {
+                    let new_scope = Rc::new(RefCell::new(Scope::new(&[], Some(Rc::clone(&scope)))));
+                    return fn_begin(args, &new_scope)
+                } else if s == "define" {
+                    return fn_define(args, scope).map(|_| Rc::new(Object::Nil))
+                } else if s == "lambda" {
+                    return lambda(args, scope)
+                } else if s == "and" {
+                    return logic_and(args, scope)
+                } else if s == "or" {
+                    return logic_or(args, scope)
+                }
+            }
             eval(func, scope).and_then(|rc| {
-                let new_scope = Rc::new(RefCell::new(Scope::new(&[], Some(Rc::clone(&scope)))));
-                match rc.as_ref() {
-                    Object::Symbol(ref s) => {
-                        return if s == "quote" {
-                            quote(args.as_ref())
-                        } else if s == "if" {
-                            fn_if(args.as_ref(), &new_scope)
-                        } else if s == "let" {
-                            fn_let(args.as_ref(), &new_scope)
-                        } else if s == "begin" {
-                            fn_begin(args.as_ref(), &new_scope)
-                        } else if s == "define" {
-                            fn_define(args.as_ref(), scope).map(|_| Rc::new(Object::Nil))
-                        } else if s == "lambda" {
-                            lambda(args.as_ref(), scope)
-                        } else {
-                            Err(format!("expected a function, found unbound symbol '{}'", s))
-                        }
-                    },
-                    Object::Function(f) => {
-                        eval_args(args, scope).and_then(|args| f.call(args))
-                    },
-                    _ => Err(format!("Illegal object used as a function: {:?}", func))
+                if let Object::Function(f) = rc.as_ref() {
+                    eval_args(args, scope).and_then(|args| f.call(args))
+                } else {
+                    Err(format!("Illegal object used as a function: {:?}", func))
                 }
             })
         }
@@ -259,6 +261,7 @@ mod tests {
         assert_eval("((lambda (x . y) y) 1 2 3)", "(2 3)");
         assert_eval("(begin (define f (lambda (x) x)) (f 'foo))", "foo");
 
+        expect_err("(list a)");                   // unbound variable
         expect_err("(lambda (1) a)");             // wrong argument type
         expect_err("(lambda (x x) x)");           // duplication of argument id
         expect_err("((lambda (a b) a) 1)");       // too few arguments given
