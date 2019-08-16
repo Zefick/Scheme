@@ -2,7 +2,7 @@ use crate::functions::Function;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub enum Number {
     Float(f64),
     Integer(i32),

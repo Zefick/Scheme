@@ -1,6 +1,7 @@
 use crate::functions::*;
 use crate::lists::*;
 use crate::logic::*;
+use crate::math::*;
 use crate::object::*;
 
 use std::cell::RefCell;
@@ -53,5 +54,16 @@ pub fn get_global_scope() -> Scope {
         ("list?".to_string(), Rc::new(Object::Function(Function::Pointer(is_list)))),
         ("pair?".to_string(), Rc::new(Object::Function(Function::Pointer(is_pair)))),
         ("not".to_string(), Rc::new(Object::Function(Function::Pointer(logic_not)))),
+
+        ("number?".to_string(), Rc::new(Object::Function(Function::Pointer(is_number)))),
+        ("integer?".to_string(), Rc::new(Object::Function(Function::Pointer(is_integer)))),
+        ("real?".to_string(), Rc::new(Object::Function(Function::Pointer(is_real)))),
+        ("=".to_string(), Rc::new(Object::Function(Function::Pointer(num_eqv)))),
+        ("<".to_string(), Rc::new(Object::Function(Function::Pointer(num_less)))),
+        (">".to_string(), Rc::new(Object::Function(Function::Pointer(num_greater)))),
+        ("+".to_string(), Rc::new(Object::Function(Function::Pointer(num_plus)))),
+        ("-".to_string(), Rc::new(Object::Function(Function::Pointer(num_minus)))),
+        ("*".to_string(), Rc::new(Object::Function(Function::Pointer(num_mul)))),
+        ("/".to_string(), Rc::new(Object::Function(Function::Pointer(num_div)))),
     ], None);
 }

@@ -1,10 +1,11 @@
 mod eval;
 mod functions;
+mod lists;
 mod logic;
+mod math;
 mod object;
 mod parser;
 mod scope;
-mod lists;
 
 use std::cell::RefCell;
 use std::io::*;
