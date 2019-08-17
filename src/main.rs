@@ -7,6 +7,9 @@ mod object;
 mod parser;
 mod scope;
 
+#[cfg(test)]
+mod tests;
+
 use std::cell::RefCell;
 use std::io::*;
 use std::rc::Rc;
