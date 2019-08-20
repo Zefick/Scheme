@@ -2,10 +2,9 @@ use crate::eval::*;
 use crate::object::Object;
 use crate::scope::Scope;
 
-use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-pub fn fn_if(args: &Object, scope: &Rc<RefCell<Scope>>) -> Result<Rc<Object>, String> {
+pub fn fn_if(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
     expect_args(args, "if", 3).and_then(|vec| {
         let mut vec = vec.into_iter();
         eval(&vec.next().unwrap(), scope).and_then(|val| {
@@ -17,7 +16,7 @@ pub fn fn_if(args: &Object, scope: &Rc<RefCell<Scope>>) -> Result<Rc<Object>, St
     })
 }
 
-pub fn cond(args: &Object, scope: &Rc<RefCell<Scope>>) -> Result<Rc<Object>, String> {
+pub fn cond(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
     list_to_vec(args).and_then(|cond_list| {
         if cond_list.is_empty() {
             return Err(format!("'cond' need at least 1 clause"));
@@ -72,26 +71,26 @@ pub fn logic_not(obj: Rc<Object>) -> Result<Rc<Object>, String> {
         .and_then(|vec| Ok(Rc::new(Object::Boolean(!vec.get(0).unwrap().is_true()))))
 }
 
-pub fn logic_and(obj: &Object, scope: &Rc<RefCell<Scope>>) -> Result<Rc<Object>, String> {
+pub fn logic_and(obj: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
     list_to_vec(&obj).and_then(|vec| {
-        let result = Cell::new(Rc::new(Object::Boolean(true)));
+        let mut result = Rc::new(Object::Boolean(true));
         for obj in vec {
             match eval(&obj, scope) {
                 Err(e) => return Err(e),
                 Ok(x) => {
                     if x.is_true() {
-                        result.set(x);
+                        result = x;
                     } else {
                         return Ok(x);
                     }
                 }
             }
         }
-        return Ok(result.take());
+        return Ok(result);
     })
 }
 
-pub fn logic_or(obj: &Object, scope: &Rc<RefCell<Scope>>) -> Result<Rc<Object>, String> {
+pub fn logic_or(obj: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
     list_to_vec(obj).and_then(|vec| {
         for obj in vec {
             match eval(&obj, scope) {

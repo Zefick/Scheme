@@ -1,13 +1,12 @@
 use crate::eval::*;
 use crate::parser::parse_expression;
 use crate::scope::get_global_scope;
-use std::cell::RefCell;
 use std::rc::Rc;
 
 fn assert_eval(expr: &str, expected: &str) {
     let scope = get_global_scope();
     let obj = parse_expression(expr).unwrap().pop().unwrap();
-    eval(&Rc::new(obj), &Rc::new(RefCell::new(scope)))
+    eval(&Rc::new(obj), &scope)
         .map(|obj| assert_eq!(format!("{}", obj), expected))
         .unwrap_or_else(|err| panic!(err));
 }
@@ -15,8 +14,7 @@ fn assert_eval(expr: &str, expected: &str) {
 fn expect_err(expr: &str) {
     let scope = get_global_scope();
     let obj = parse_expression(expr).unwrap().pop().unwrap();
-    eval(&Rc::new(obj), &Rc::new(RefCell::new(scope)))
-        .expect_err(format!("error expected for {}", expr).as_str());
+    eval(&Rc::new(obj), &scope).expect_err(format!("error expected for {}", expr).as_str());
 }
 
 #[test]
@@ -24,11 +22,12 @@ fn expect_err(expr: &str) {
 fn eval_test() {
 
     // core functions and special forms
-    expect_err("(list a)");                   // unbound variable
-    expect_err("(begin 1 . 2)");              // not a proper list
     assert_eval("(begin 1 2 3)", "3");
     assert_eval("'1", "1");
     assert_eval("'''foo", "(quote (quote foo))");
+    expect_err("(list a)");                   // unbound variable
+    expect_err("(begin 1 . 2)");              // not a proper list
+    expect_err("(quote 1 2)");                // malformed quote
 
     // list and pairs functions
     assert_eval("(car '(1 . 2))", "1");
@@ -41,6 +40,7 @@ fn eval_test() {
     // let, define
     assert_eval("(let ((x 2)) x)", "2");
     assert_eval("(let ((x car) (y '(1 2 3))) (x y))", "1");
+    assert_eval("(let ((x 1)) (let ((x 2) (y x)) y))", "1");
     assert_eval("(begin (define x 5) (cons (begin (define x 2) x) x))", "(2 . 5)");
     assert_eval("(begin (define (x)) x)", "<function>");
     assert_eval("(begin (define (x a) (car a)) (x '(5 6)))", "5");

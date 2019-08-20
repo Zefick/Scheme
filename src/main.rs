@@ -10,7 +10,6 @@ mod scope;
 #[cfg(test)]
 mod tests;
 
-use std::cell::RefCell;
 use std::io::*;
 use std::rc::Rc;
 
@@ -18,6 +17,7 @@ use std::rc::Rc;
 
 fn main() {
     let debug = false;
+    let scope = scope::get_global_scope();
     loop {
         let mut s = String::new();
         print!(" > ");
@@ -28,7 +28,6 @@ fn main() {
         }
         match parser::parse_expression(&s) {
             Ok(list) => {
-                let scope = Rc::new(RefCell::new(scope::get_global_scope()));
                 for obj in list {
                     match eval::eval(&Rc::new(obj), &scope) {
                         Ok(x) => print!("{}\n", x),

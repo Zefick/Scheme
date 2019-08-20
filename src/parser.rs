@@ -1,27 +1,24 @@
-
 use super::object::*;
 use std::cell::Cell;
 
-
 #[derive(PartialEq, Debug)]
 enum Token {
-    Lpar, Rpar,
-    Dot, Quote,
+    Lpar,
+    Rpar,
+    Dot,
+    Quote,
     Integer(i32),
     Float(f64),
     Symbol(String),
-    String(String)
+    String(String),
 }
 
-
 #[derive(Debug)]
-pub struct ParseErr (pub String);
-
+pub struct ParseErr(pub String);
 
 const SYMBOLS_ALLOWED: &str = "+-.*/<=>!?:$%_&~^#";
 
-
-fn parse_number(source : &[char]) -> Result<(usize, Token), ParseErr> {
+fn parse_number(source: &[char]) -> Result<(usize, Token), ParseErr> {
     let mut ptr = 1;
     let mut real = false;
     while ptr < source.len() {
@@ -36,7 +33,7 @@ fn parse_number(source : &[char]) -> Result<(usize, Token), ParseErr> {
         }
         ptr += 1;
     }
-    let s : String = source[..ptr].into_iter().collect();
+    let s: String = source[..ptr].into_iter().collect();
     if real {
         return Ok((ptr - 1, Token::Float(s.parse().unwrap())));
     } else {
@@ -44,8 +41,7 @@ fn parse_number(source : &[char]) -> Result<(usize, Token), ParseErr> {
     }
 }
 
-
-fn parse_string(source : &[char]) -> Result<(usize, Token), ParseErr> {
+fn parse_string(source: &[char]) -> Result<(usize, Token), ParseErr> {
     let mut ptr = 1;
     loop {
         if ptr < source.len() {
@@ -59,8 +55,7 @@ fn parse_string(source : &[char]) -> Result<(usize, Token), ParseErr> {
     }
 }
 
-
-fn parse_symbol(source : &[char]) -> (usize, Token) {
+fn parse_symbol(source: &[char]) -> (usize, Token) {
     let mut ptr = 1;
     while ptr < source.len() {
         let c = source[ptr];
@@ -73,8 +68,7 @@ fn parse_symbol(source : &[char]) -> (usize, Token) {
     return (ptr - 1, Token::Symbol(source[..ptr].into_iter().collect()));
 }
 
-
-fn tokenize(source : &str) -> Result<Vec<Token>, ParseErr> {
+fn tokenize(source: &str) -> Result<Vec<Token>, ParseErr> {
     let chars = &source.chars().collect::<Vec<char>>()[..];
     let mut result = Vec::<Token>::new();
     let mut ptr = 0;
@@ -85,38 +79,31 @@ fn tokenize(source : &str) -> Result<Vec<Token>, ParseErr> {
                 while ptr < chars.len() && chars[ptr] != '\n' {
                     ptr += 1;
                 }
-            }
-            else if c == '(' {
+            } else if c == '(' {
                 result.push(Token::Lpar);
-            }
-            else if c == ')' {
+            } else if c == ')' {
                 result.push(Token::Rpar);
-            }
-            else if c == '\'' {
+            } else if c == '\'' {
                 result.push(Token::Quote);
-            }
-            else if c == '.' {
+            } else if c == '.' {
                 result.push(Token::Dot);
-            }
-            else if c.is_digit(10) {
+            } else if c.is_digit(10) {
                 match parse_number(&chars[ptr..]) {
                     Ok((p, token)) => {
                         ptr += p;
                         result.push(token);
-                    },
-                    Err(e) => return Err(e)
+                    }
+                    Err(e) => return Err(e),
                 };
-            }
-            else if c == '"' {
-                match parse_string(&chars[ptr+1..]) {
+            } else if c == '"' {
+                match parse_string(&chars[ptr + 1..]) {
                     Ok((p, token)) => {
                         ptr += p;
                         result.push(token);
-                    },
-                    Err(e) => return Err(e)
+                    }
+                    Err(e) => return Err(e),
                 };
-            }
-            else if c.is_alphabetic() || SYMBOLS_ALLOWED.contains(c) {
+            } else if c.is_alphabetic() || SYMBOLS_ALLOWED.contains(c) {
                 let r = parse_symbol(&chars[ptr..]);
                 ptr += r.0;
                 result.push(r.1);
@@ -130,19 +117,18 @@ fn tokenize(source : &str) -> Result<Vec<Token>, ParseErr> {
 }
 
 /**
-  The language's grammar:
+ The language's grammar:
 
-  program  ::=  object* End
-  object   ::=  (list | 'object | atom
-  list     ::=  object list | ) | .object)
-  atom     ::=  number | symbol | string
- */
-
+ program  ::=  object* End
+ object   ::=  (list | 'object | atom
+ list     ::=  object list | ) | .object)
+ atom     ::=  number | symbol | string
+*/
 
 /**
  * The main parsing function.
  */
-pub fn parse_expression(source : &str) -> Result<Vec<Object>, ParseErr> {
+pub fn parse_expression(source: &str) -> Result<Vec<Object>, ParseErr> {
     let tokens = tokenize(source);
     if let Err(e) = tokens {
         return Err(e);
@@ -164,31 +150,41 @@ pub fn parse_expression(source : &str) -> Result<Vec<Object>, ParseErr> {
  * object  ::=  'object
  * object  ::=  number | symbol | string
  */
-fn parse_object(current : &Cell<Object>, first: Token, rest : &mut dyn Iterator<Item=Token>)
-            -> Result<(), ParseErr> {
+fn parse_object(
+    current: &Cell<Object>,
+    first: Token,
+    rest: &mut dyn Iterator<Item = Token>,
+) -> Result<(), ParseErr> {
     match first {
         Token::Symbol(s) => current.set(Object::Symbol(s)),
         Token::String(s) => current.set(Object::String(s)),
         Token::Float(value) => current.set(Object::Number(Number::Float(value))),
         Token::Integer(value) => current.set(Object::Number(Number::Integer(value))),
         Token::Quote => {
-            return rest.next().map(|t| {
-                 parse_object(current, t, rest).and_then(|_| {
-                     current.set(Object::make_pair(
+            return rest
+                .next()
+                .map(|token| {
+                    parse_object(current, token, rest).and_then(|_| {
+                        current.set(Object::make_pair(
                             Object::Symbol("quote".to_string()),
-                            Object::make_pair(current.take(), Object::Nil)));
-                     Ok(())
-                 })
-            }).unwrap_or_else(||
-                Err(ParseErr("Unexpected end of input".to_string())));
-        },
+                            Object::make_pair(current.take(), Object::Nil),
+                        ));
+                        Ok(())
+                    })
+                })
+                .unwrap_or_else(|| Err(ParseErr("Unexpected end of input".to_string())));
+        }
         Token::Lpar => {
-            return rest.next().map(|t|
-                parse_list(current, t, rest)
-            ).unwrap_or_else(||
-                Err(ParseErr("Unexpected end of input after opening parenthesis".to_string())));
-        },
-        _ => return Err(ParseErr(format!("Unexpected token: {:?}", first)))
+            return rest
+                .next()
+                .map(|token| parse_list(current, token, rest))
+                .unwrap_or_else(|| {
+                    Err(ParseErr(
+                        "Unexpected end of input after opening parenthesis".to_string(),
+                    ))
+                });
+        }
+        _ => return Err(ParseErr(format!("Unexpected token: {:?}", first))),
     };
     return Ok(());
 }
@@ -198,42 +194,49 @@ fn parse_object(current : &Cell<Object>, first: Token, rest : &mut dyn Iterator<
  * list  ::=  . object)
  * list  ::=  object list
  */
-fn parse_list(current : &Cell<Object>, first: Token, rest : &mut dyn Iterator<Item=Token>)
-            -> Result<(), ParseErr> {
+fn parse_list(
+    current: &Cell<Object>,
+    first: Token,
+    rest: &mut dyn Iterator<Item = Token>,
+) -> Result<(), ParseErr> {
     match first {
         Token::Rpar => Ok(()),
-        Token::Dot => {
-            rest.next().map(|t| {
-                parse_object(current, t, rest).and_then(|_| {
-                    match rest.next() {
-                        Some(Token::Rpar) => Ok(()),
-                        Some(t) => Err(ParseErr(format!("Closing parenthesis expected ({:?} found)", t))),
-                        None => Err(ParseErr("Closing parenthesis expected (found end of input)".to_string()))
-                    }
+        Token::Dot => rest
+            .next()
+            .map(|token| {
+                parse_object(current, token, rest).and_then(|_| match rest.next() {
+                    Some(Token::Rpar) => Ok(()),
+                    Some(t) => Err(ParseErr(format!(
+                        "Closing parenthesis expected ({:?} found)",
+                        t
+                    ))),
+                    None => Err(ParseErr(
+                        "Closing parenthesis expected (found end of input)".to_string(),
+                    )),
                 })
-            }).unwrap_or_else(|| Err(ParseErr("Unexpected end of input after a dot".to_string())))
-        },
-        _ => {
-            parse_object(current, first, rest).and_then(|_| {
-                let head = current.take();
-                rest.next().map(|t| {
-                    parse_list(current, t, rest).and_then(|_| {
+            })
+            .unwrap_or_else(|| Err(ParseErr("Unexpected end of input after a dot".to_string()))),
+        _ => parse_object(current, first, rest).and_then(|_| {
+            let head = current.take();
+            rest.next()
+                .map(|token| {
+                    parse_list(current, token, rest).and_then(|_| {
                         current.set(Object::make_pair(head, current.take()));
                         Ok(())
                     })
-                }).unwrap_or_else(|| Err(ParseErr("Unexpected end of input".to_string())))
-            })
-        }
+                })
+                .unwrap_or_else(|| Err(ParseErr("Unexpected end of input".to_string())))
+        }),
     }
 }
 
-pub fn debug_expression(input : &str) {
+pub fn debug_expression(input: &str) {
     print!("{:?}\n", tokenize(input));
     print!("{:?}\n", parse_expression(input));
 }
 
-
 #[cfg(test)]
+#[rustfmt::skip]
 mod tests {
 
     use super::*;
@@ -266,7 +269,7 @@ mod tests {
 
         assert_eq!(parse_expression("(1)").unwrap(),
                    vec![Object::make_pair(Object::make_int(1), Object::Nil)]);
-                    
+
         assert_eq!(parse_expression("(1 . a)").unwrap(),
                    vec![Object::make_pair(Object::make_int(1),
                                           Object::Symbol("a".to_string()))]);

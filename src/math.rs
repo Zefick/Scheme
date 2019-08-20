@@ -8,7 +8,7 @@ use std::rc::Rc;
 fn normalize(x: Number) -> Number {
     if let Number::Float(f) = x {
         if f.floor() == f {
-            return Number::Integer(f as i32)
+            return Number::Integer(f as i32);
         }
     }
     x.clone()

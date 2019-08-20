@@ -11,36 +11,34 @@ use std::rc::Rc;
 /// Immutable storage of bindings
 #[derive(Debug)]
 pub struct Scope {
-    map: HashMap<String, Rc<Object>>,
-    parent: Option<Rc<RefCell<Scope>>>,
+    map: RefCell<HashMap<String, Rc<Object>>>,
+    parent: Option<Rc<Scope>>,
 }
 
 impl Scope {
     pub fn get(&self, key: &str) -> Option<Rc<Object>> {
-        self.map
-            .get(key)
-            .map(Rc::clone)
-            .or_else(|| self.parent.as_ref().and_then(|p| p.borrow().get(key)))
+        (self.map.borrow().get(key).map(Rc::clone))
+            .or_else(|| self.parent.as_ref().and_then(|p| p.get(key)))
     }
-    pub fn bind(&mut self, key: String, value: Rc<Object>) {
-        self.map.insert(key, value);
+    pub fn bind(&self, key: &String, value: Rc<Object>) {
+        self.map.borrow_mut().insert(key.clone(), value);
     }
-    pub fn new(items: &[(String, Rc<Object>)], parent: Option<&Rc<RefCell<Scope>>>) -> Scope {
+    pub fn new(items: &[(String, Rc<Object>)], parent: Option<&Rc<Scope>>) -> Rc<Scope> {
         let mut scope = HashMap::new();
         for item in items {
             scope.insert(item.0.clone(), Rc::clone(&item.1));
         }
-        return Scope {
-            map: scope,
+        return Rc::new(Scope {
+            map: RefCell::new(scope),
             parent: parent.map(Rc::clone),
-        };
+        });
     }
 }
 
 /// Global bindings storage accessible from everywhere.
 /// Contains core functions and constants like `#t` and `#f`
 #[rustfmt::skip]
-pub fn get_global_scope() -> Scope {
+pub fn get_global_scope() -> Rc<Scope> {
     return Scope::new(&[
         ("#t".to_string(), Rc::new(Object::Boolean(true))),
         ("#f".to_string(), Rc::new(Object::Boolean(false))),
