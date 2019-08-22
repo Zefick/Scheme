@@ -96,14 +96,13 @@ impl Function {
         body: &Rc<Object>,
         scope: &Rc<Scope>,
     ) -> Result<Object, String> {
-        Function::check_args(args).and_then(|_| {
-            Ok(Object::Function(Function::Object {
-                name: name.clone(),
-                args: Rc::clone(args),
-                body: Rc::clone(body),
-                scope: Rc::clone(scope),
-            }))
-        })
+        Function::check_args(args)?;
+        Ok(Object::Function(Function::Object {
+            name: name.clone(),
+            args: Rc::clone(args),
+            body: Rc::clone(body),
+            scope: Rc::clone(scope),
+        }))
     }
 }
 
@@ -117,58 +116,56 @@ impl PartialEq<Self> for Function {
 }
 
 pub fn fn_apply(args: Rc<Object>) -> Result<Rc<Object>, String> {
-    list_to_vec(args.as_ref()).and_then(|vec| {
-        if vec.len() < 2 {
-            return Err(format!(
-                "apply needs at least 2 arguments, got {}",
-                vec.len()
-            ));
+    let vec = list_to_vec(args.as_ref())?;
+    if vec.len() < 2 {
+        return Err(format!(
+            "apply needs at least 2 arguments, got {}",
+            vec.len()
+        ));
+    }
+    let func = vec.get(0).unwrap();
+    if let Object::Function(f) = func.as_ref() {
+        let mut args = Rc::clone(vec.get(vec.len() - 1).unwrap());
+        if list_to_vec(&args).is_err() {
+            return Err(format!("improper list not allowed for 'apply': {}", args));
         }
-        let func = vec.get(0).unwrap();
-        if let Object::Function(f) = func.as_ref() {
-            let mut args = Rc::clone(vec.get(vec.len() - 1).unwrap());
-            if list_to_vec(&args).is_err() {
-                return Err(format!("improper list not allowed for 'apply': {}", args));
-            }
-            // concatenate first arguments with a last one presented as a list
-            for i in (1..vec.len() - 1).rev() {
-                args = Rc::new(Object::Pair(Rc::clone(vec.get(i).unwrap()), args));
-            }
-            f.call(args)
-        } else {
-            Err(format!("Illegal object used as a function: {}", func))
+        // concatenate first arguments with a last one presented as a list
+        for i in (1..vec.len() - 1).rev() {
+            args = Rc::new(Object::Pair(Rc::clone(vec.get(i).unwrap()), args));
         }
-    })
+        f.call(args)
+    } else {
+        Err(format!("Illegal object used as a function: {}", func))
+    }
 }
 
 pub fn fn_map(args: Rc<Object>) -> Result<Rc<Object>, String> {
-    list_to_vec(args.as_ref()).and_then(|vec| {
-        if vec.len() < 2 {
-            return Err(format!("map needs at least 2 arguments, got {}", vec.len()));
-        }
-        let func = vec.get(0).unwrap();
-        if let Object::Function(f) = func.as_ref() {
-            // first check that all arguments are lists and have the same size
-            let mut len = None;
-            let mut inputs = Vec::new();
-            for arg in vec.iter().skip(1) {
-                let vec = list_to_vec(arg)?;
-                if len.is_none() {
-                    len = Some(vec.len());
-                } else if len.unwrap() != vec.len() {
-                    return Err(format!("list of wrong length: {}", arg.as_ref()));
-                }
-                inputs.push(vec);
+    let vec = list_to_vec(args.as_ref())?;
+    if vec.len() < 2 {
+        return Err(format!("map needs at least 2 arguments, got {}", vec.len()));
+    }
+    let func = vec.get(0).unwrap();
+    if let Object::Function(f) = func.as_ref() {
+        // first check that all arguments are lists and have the same size
+        let mut len = None;
+        let mut inputs = Vec::new();
+        for arg in vec.iter().skip(1) {
+            let vec = list_to_vec(arg)?;
+            if len.is_none() {
+                len = Some(vec.len());
+            } else if len.unwrap() != vec.len() {
+                return Err(format!("list of wrong length: {}", arg.as_ref()));
             }
-            // then call a mapped function
-            let mut result = Vec::new();
-            for i in 0..len.unwrap() {
-                let args = inputs.iter().map(|v| v.get(i).unwrap()).cloned().collect();
-                result.push(f.call(Rc::new(vec_to_list(args)))?);
-            }
-            Ok(Rc::new(vec_to_list(result)))
-        } else {
-            Err(format!("Illegal object used as a function: {}", func))
+            inputs.push(vec);
         }
-    })
+        // then call a mapped function
+        let mut result = Vec::new();
+        for i in 0..len.unwrap() {
+            let args = inputs.iter().map(|v| v.get(i).unwrap()).cloned().collect();
+            result.push(f.call(Rc::new(vec_to_list(args)))?);
+        }
+        Ok(Rc::new(vec_to_list(result)))
+    } else {
+        Err(format!("Illegal object used as a function: {}", func))
+    }
 }

@@ -70,6 +70,7 @@ fn eval_test() {
     assert_eval("(cond (#f 42))", "#<undef>");
     assert_eval("(cond (#f 42) (else))", "#<undef>");
     assert_eval("(cond (#f 42) (else 1 2))", "2");
+    assert_eval("(cond (#f 42) (#t 1 2))", "2");
 
     // arithmetic functions
     assert_eval("(list (number? 1) (number? 'foo))", "(#t #f)");

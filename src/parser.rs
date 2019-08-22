@@ -88,21 +88,13 @@ fn tokenize(source: &str) -> Result<Vec<Token>, ParseErr> {
             } else if c == '.' {
                 result.push(Token::Dot);
             } else if c.is_digit(10) {
-                match parse_number(&chars[ptr..]) {
-                    Ok((p, token)) => {
-                        ptr += p;
-                        result.push(token);
-                    }
-                    Err(e) => return Err(e),
-                };
+                let (p, token) = parse_number(&chars[ptr..])?;
+                ptr += p;
+                result.push(token);
             } else if c == '"' {
-                match parse_string(&chars[ptr + 1..]) {
-                    Ok((p, token)) => {
-                        ptr += p;
-                        result.push(token);
-                    }
-                    Err(e) => return Err(e),
-                };
+                let (p, token) = parse_string(&chars[ptr + 1..])?;
+                ptr += p;
+                result.push(token);
             } else if c.is_alphabetic() || SYMBOLS_ALLOWED.contains(c) {
                 let r = parse_symbol(&chars[ptr..]);
                 ptr += r.0;
@@ -129,17 +121,11 @@ fn tokenize(source: &str) -> Result<Vec<Token>, ParseErr> {
  * The main parsing function.
  */
 pub fn parse_expression(source: &str) -> Result<Vec<Object>, ParseErr> {
-    let tokens = tokenize(source);
-    if let Err(e) = tokens {
-        return Err(e);
-    }
-    let tokens = &mut tokens.unwrap().into_iter();
+    let tokens = &mut tokenize(source)?.into_iter();
     let mut program = Vec::<Object>::new();
     while let Some(t) = tokens.next() {
         let current = Cell::new(Object::Nil);
-        if let Err(e) = parse_object(&current, t, tokens) {
-            return Err(e);
-        }
+        parse_object(&current, t, tokens)?;
         program.push(current.take());
     }
     Ok(program)
@@ -164,13 +150,12 @@ fn parse_object(
             return rest
                 .next()
                 .map(|token| {
-                    parse_object(current, token, rest).and_then(|_| {
-                        current.set(Object::make_pair(
-                            Object::Symbol("quote".to_string()),
-                            Object::make_pair(current.take(), Object::Nil),
-                        ));
-                        Ok(())
-                    })
+                    parse_object(current, token, rest)?;
+                    current.set(Object::make_pair(
+                        Object::Symbol("quote".to_string()),
+                        Object::make_pair(current.take(), Object::Nil),
+                    ));
+                    Ok(())
                 })
                 .unwrap_or_else(|| Err(ParseErr("Unexpected end of input".to_string())));
         }
@@ -201,10 +186,10 @@ fn parse_list(
 ) -> Result<(), ParseErr> {
     match first {
         Token::Rpar => Ok(()),
-        Token::Dot => rest
-            .next()
+        Token::Dot => (rest.next())
             .map(|token| {
-                parse_object(current, token, rest).and_then(|_| match rest.next() {
+                parse_object(current, token, rest)?;
+                match rest.next() {
                     Some(Token::Rpar) => Ok(()),
                     Some(t) => Err(ParseErr(format!(
                         "Closing parenthesis expected ({:?} found)",
@@ -213,20 +198,20 @@ fn parse_list(
                     None => Err(ParseErr(
                         "Closing parenthesis expected (found end of input)".to_string(),
                     )),
-                })
+                }
             })
             .unwrap_or_else(|| Err(ParseErr("Unexpected end of input after a dot".to_string()))),
-        _ => parse_object(current, first, rest).and_then(|_| {
+        _ => {
+            parse_object(current, first, rest)?;
             let head = current.take();
             rest.next()
                 .map(|token| {
-                    parse_list(current, token, rest).and_then(|_| {
-                        current.set(Object::make_pair(head, current.take()));
-                        Ok(())
-                    })
+                    parse_list(current, token, rest)?;
+                    current.set(Object::make_pair(head, current.take()));
+                    Ok(())
                 })
                 .unwrap_or_else(|| Err(ParseErr("Unexpected end of input".to_string())))
-        }),
+        }
     }
 }
 

@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 /// Converts lists to Vec of references to its elements.
 pub fn list_to_vec(mut obj: &Object) -> Result<Vec<Rc<Object>>, String> {
-    let mut result = Vec::<Rc<Object>>::new();
+    let mut result = Vec::new();
     while let Object::Pair(a, b) = obj {
         result.push(Rc::clone(a));
         obj = b.as_ref();
@@ -31,17 +31,16 @@ pub fn vec_to_list(vec: Vec<Rc<Object>>) -> Object {
 
 /// Ensures that given object is a list with length `n`
 pub fn expect_args(args: &Object, func: &str, n: usize) -> Result<Vec<Rc<Object>>, String> {
-    list_to_vec(args).and_then(|vec| {
-        if vec.len() != n {
-            Err(format!(
-                "Wrong number or arguments for '{}': {}",
-                func,
-                vec.len()
-            ))
-        } else {
-            Ok(vec)
-        }
-    })
+    let vec = list_to_vec(args)?;
+    if vec.len() != n {
+        Err(format!(
+            "Wrong number or arguments for '{}': {}",
+            func,
+            vec.len()
+        ))
+    } else {
+        Ok(vec)
+    }
 }
 
 /// Ensures that given object is a pair or returns an Err.
@@ -55,12 +54,10 @@ pub fn check_pair(obj: &Object) -> Result<(&Rc<Object>, &Rc<Object>), String> {
 }
 
 pub fn eval_args(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
-    match args {
-        Object::Pair(a, b) => eval(&Rc::clone(a), scope).and_then(|head| {
-            eval_args(b, scope).and_then(|tail| Ok(Rc::new(Object::Pair(head, tail))))
-        }),
-        _ => Ok(Rc::new(Object::Nil)),
-    }
+    Ok(Rc::new(match args {
+        Object::Pair(a, b) => Object::Pair(eval(&Rc::clone(a), scope)?, eval_args(b, scope)?),
+        _ => Object::Nil,
+    }))
 }
 
 fn quote(args: &Object) -> Result<Rc<Object>, String> {
@@ -70,44 +67,36 @@ fn quote(args: &Object) -> Result<Rc<Object>, String> {
 }
 
 fn fn_let(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
-    list_to_vec(args).and_then(|let_args| {
-        if let_args.len() < 2 {
-            return Err(format!(
-                "'let' need at least 2 arguments, {} found",
-                let_args.len()
-            ));
-        }
-        list_to_vec(let_args.get(0).unwrap()).and_then(|args| {
-            let mut bindings = Vec::new();
-            for arg in args {
-                let result = list_to_vec(arg.as_ref()).and_then(|vec| {
-                    if vec.len() >= 2 {
-                        let var = vec.get(0).unwrap().as_ref();
-                        match var {
-                            Object::Symbol(s) => eval(&vec.get(1).unwrap(), scope)
-                                .map(|obj| bindings.push((s.clone(), obj))),
-                            _ => Err(
-                                format!("let: need a symbol for binding name, got '{}'", var)
-                                    .to_string(),
-                            ),
-                        }
-                    } else {
-                        Err(
-                            format!("let: need a list length 2 for bindings, got '{}'", arg)
-                                .to_string(),
-                        )
+    let let_args = list_to_vec(args)?;
+    if let_args.len() < 2 {
+        return Err(format!(
+            "'let' need at least 2 arguments, {} found",
+            let_args.len()
+        ));
+    }
+    let args = list_to_vec(let_args.get(0).unwrap())?;
+    let mut bindings = Vec::new();
+    for arg in args {
+        list_to_vec(arg.as_ref()).and_then(|vec| {
+            if vec.len() >= 2 {
+                let var = vec.get(0).unwrap().as_ref();
+                match var {
+                    Object::Symbol(s) => {
+                        eval(&vec.get(1).unwrap(), scope).map(|obj| bindings.push((s.clone(), obj)))
                     }
-                });
-                if result.is_err() {
-                    return Err(result.err().unwrap());
+                    _ => Err(
+                        format!("let: need a symbol for binding name, got '{}'", var).to_string(),
+                    ),
                 }
+            } else {
+                Err(format!("let: need a list length 2 for bindings, got '{}'", arg).to_string())
             }
-            fn_begin_vec(
-                let_args.into_iter().skip(1),
-                &Scope::new(bindings.as_slice(), Some(scope)),
-            )
-        })
-    })
+        })?;
+    }
+    fn_begin_vec(
+        let_args.into_iter().skip(1),
+        &Scope::new(bindings.as_slice(), Some(scope)),
+    )
 }
 
 pub fn fn_begin_vec(
@@ -116,16 +105,13 @@ pub fn fn_begin_vec(
 ) -> Result<Rc<Object>, String> {
     let mut result = undef();
     for arg in args {
-        match eval(&arg, scope) {
-            Ok(val) => result = val,
-            Err(e) => return Err(e),
-        }
+        result = eval(&arg, scope)?;
     }
     Ok(result)
 }
 
 pub fn fn_begin(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
-    list_to_vec(args).and_then(|args| fn_begin_vec(args.into_iter(), scope))
+    fn_begin_vec(list_to_vec(args)?.into_iter(), scope)
 }
 
 pub fn undef() -> Rc<Object> {
@@ -138,39 +124,36 @@ pub fn undef() -> Rc<Object> {
 ///
 /// Both syntax handled by this function. Defined value added to a current scope
 pub fn fn_define(args: &Object, scope: &Rc<Scope>) -> Result<(), String> {
-    match args {
-        Object::Pair(head, expr) => {
-            match head.as_ref() {
-                // (define x expr)
-                Object::Symbol(s) => match expr.as_ref() {
-                    Object::Pair(value, tail) => {
-                        if !tail.as_ref().is_nil() {
-                            Err("extra argument for 'define'".to_string())
-                        } else {
-                            eval(value, scope).map(|obj| scope.as_ref().bind(&s.to_string(), obj))
-                        }
+    if let Object::Pair(head, expr) = args {
+        match head.as_ref() {
+            // (define x expr)
+            Object::Symbol(s) => match expr.as_ref() {
+                Object::Pair(value, tail) => {
+                    if !tail.as_ref().is_nil() {
+                        Err("extra argument for 'define'".to_string())
+                    } else {
+                        eval(value, scope).map(|obj| scope.as_ref().bind(&s.to_string(), obj))
                     }
-                    _ => Err(format!("proper list required for 'define': {}", args).to_string()),
-                },
-                // (define (name args) body)
-                Object::Pair(name, args) => match name.as_ref() {
-                    Object::Symbol(s) => {
-                        (Function::new(s, args, expr, scope)
-                            .map(|obj| scope.as_ref().bind(s, Rc::new(obj))))
-                    }
-                    _ => Err(
-                        format!("expected symbol as a function name, found '{}'", name).to_string(),
-                    ),
-                },
-                x => Err(
-                    format!("proper list or symbol need for 'define', found: {}", x).to_string(),
-                ),
-            }
+                }
+                _ => Err(format!("proper list required for 'define': {}", args).to_string()),
+            },
+            // (define (name args) body)
+            Object::Pair(name, args) => match name.as_ref() {
+                Object::Symbol(s) => {
+                    (Function::new(s, args, expr, scope)
+                        .map(|obj| scope.as_ref().bind(s, Rc::new(obj))))
+                }
+                _ => {
+                    Err(format!("expected symbol as a function name, found '{}'", name).to_string())
+                }
+            },
+            x => Err(format!("proper list or symbol need for 'define', found: {}", x).to_string()),
         }
-        _ => Err(format!(
+    } else {
+        Err(format!(
             "a list expected for 'define' arguments, found {}",
             args
-        )),
+        ))
     }
 }
 
@@ -209,13 +192,11 @@ pub fn eval(obj: &Rc<Object>, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
                     return cond(args, scope);
                 }
             }
-            eval(func, scope).and_then(|rc| {
-                if let Object::Function(f) = rc.as_ref() {
-                    eval_args(args, scope).and_then(|args| f.call(args))
-                } else {
-                    Err(format!("Illegal object used as a function: {}", func))
-                }
-            })
+            if let Object::Function(f) = eval(func, scope)?.as_ref() {
+                f.call(eval_args(args, scope)?)
+            } else {
+                Err(format!("Illegal object used as a function: {}", func))
+            }
         }
         // other values evaluates to itself
         _ => Ok(Rc::clone(obj)),
