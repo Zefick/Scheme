@@ -18,6 +18,17 @@ pub fn list_to_vec(mut obj: &Object) -> Result<Vec<Rc<Object>>, String> {
     Ok(result)
 }
 
+/// Converts Vec of references to a list object.
+///
+/// This function always succeeds.
+pub fn vec_to_list(vec: Vec<Rc<Object>>) -> Object {
+    let mut tail = Object::Nil;
+    for element in vec.iter().rev() {
+        tail = Object::Pair(Rc::clone(element), Rc::new(tail));
+    }
+    tail
+}
+
 /// Ensures that given object is a list with length `n`
 pub fn expect_args(args: &Object, func: &str, n: usize) -> Result<Vec<Rc<Object>>, String> {
     list_to_vec(args).and_then(|vec| {

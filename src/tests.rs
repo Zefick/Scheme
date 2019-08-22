@@ -86,4 +86,15 @@ fn eval_test() {
     expect_err("(= 1 foo)");                 // wrong arguments
     expect_err("(+ 1 'foo)");                // wrong type
     expect_err("(/1 2 0)");                  // division by 0
+    
+    assert_eval("(apply list '(1 2 3))", "(1 2 3)");
+    assert_eval("(apply list 1 2 '(3 4))", "(1 2 3 4)");
+    assert_eval("(let ((foo (lambda (x) (+ x 10)))) (apply foo '(0)))", "10");
+    expect_err("(apply + 1 2 3)");           // improper list
+    expect_err("(apply +)");
+
+    assert_eval("(map list '(1 2 3))", "((1) (2) (3))");
+    assert_eval("(map list '(1 2 3) '(4 5 6))", "((1 4) (2 5) (3 6))");
+    expect_err("(map + '(1 2) '(4 5 6))");   // lists length don't match
+    expect_err("(map +)");
 }

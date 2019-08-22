@@ -47,6 +47,8 @@ pub fn get_global_scope() -> Rc<Scope> {
         ("cons".to_string(), Rc::new(Object::Function(Function::Pointer(cons)))),
         ("list".to_string(), Rc::new(Object::Function(Function::Pointer(list)))),
         ("length".to_string(), Rc::new(Object::Function(Function::Pointer(length)))),
+        ("apply".to_string(), Rc::new(Object::Function(Function::Pointer(fn_apply)))),
+        ("map".to_string(), Rc::new(Object::Function(Function::Pointer(fn_map)))),
 
         ("boolean?".to_string(), Rc::new(Object::Function(Function::Pointer(is_boolean)))),
         ("list?".to_string(), Rc::new(Object::Function(Function::Pointer(is_list)))),
