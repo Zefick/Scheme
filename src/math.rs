@@ -59,7 +59,7 @@ fn num_predicate(
 ) -> Result<Rc<Object>, String> {
     let vec = list_to_vec(&args)?;
     if vec.len() < 2 {
-        Err("'=' need at least 2 arguments".to_string())
+        Err(format!("'{}' need at least 2 arguments", name).to_string())
     } else {
         let mut result = true;
         for i in 0..vec.len() - 1 {
@@ -75,11 +75,15 @@ fn num_predicate(
     }
 }
 
-pub fn num_eqv(args: Rc<Object>) -> Result<Rc<Object>, String> {
-    num_predicate(args, "=", |x, y| match (x, y) {
+pub fn num_equal(n1: &Number, n2: &Number) -> bool {
+    match (n1, n2) {
         (Integer(a), Integer(b)) => a == b,
         (a, b) => get_float(a) == get_float(b),
-    })
+    }
+}
+
+pub fn num_eqv(args: Rc<Object>) -> Result<Rc<Object>, String> {
+    num_predicate(args, "=", num_equal)
 }
 
 pub fn num_less(args: Rc<Object>) -> Result<Rc<Object>, String> {

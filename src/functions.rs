@@ -110,7 +110,7 @@ impl PartialEq<Self> for Function {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Function::Pointer(f1), Function::Pointer(f2)) => f1 == f2,
-            _ => &self == &other,
+            _ => std::ptr::eq(self, other),
         }
     }
 }

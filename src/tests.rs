@@ -62,6 +62,7 @@ fn eval_test() {
     expect_err("(or #f foo)");                // unbound variable
     assert_eval("(and 5 'foo 42)", "42");
     assert_eval("(list (boolean? #f) (boolean? 5))", "(#t #f)");
+    assert_eval("(list (null? #t) (null? '(5)) (null? '()) (null? (cdr '(5))))", "(#f #f #t #t)");
     assert_eval("(list (pair? '(1 2)) (pair? 5))", "(#t #f)");
     assert_eval("(list (list? '(1 2)) (list? 5) (list? '(1 . 2)))", "(#t #f #f)");
     assert_eval("(list (not #f) (not 5))", "(#t #f)");
@@ -98,4 +99,23 @@ fn eval_test() {
     assert_eval("(map list '(1 2 3) '(4 5 6))", "((1 4) (2 5) (3 6))");
     expect_err("(map + '(1 2) '(4 5 6))");   // lists length don't match
     expect_err("(map +)");
+    
+    // equalities
+    assert_eval("(list (eqv? '() '()) (eqv? '(a) '(a)) (eqv? '(()) '(())))", "(#t #f #f)");
+    assert_eval("(list (eqv? #t #t) (eqv? #t #f) (eqv? #t 42))", "(#t #f #f)");
+    assert_eval("(list (eqv? 'a 'a) (eqv? 'a 'b))", "(#t #f)");
+    assert_eval("(eqv? (lambda () 1) (lambda () 1))", "#f");
+    assert_eval("(let ((p (lambda (x) x))) (eqv? p p))", "#t");
+    assert_eval("(let ((a '(a)) (b '(a))) (list (eqv? a a) (eqv? a b)))", "(#t #f)");
+    assert_eval("(let ((a '(a b))) (eqv? (cdr a) (cdr a)))", "#t");
+    assert_eval("(let ((a '(a b))) (eqv? (cdr a) '(b)))", "#f");
+    assert_eval("(eqv? car car)", "#t");
+
+    assert_eval("(list (eqv? 2 2) (eqv? 2 3) (eqv? 2 2.0))", "(#t #f #t)");
+    assert_eval("(list (eq? 2 2) (eq? 2 3) (eq? 2 2.0))", "(#t #f #f)");
+
+    assert_eval("(equal? '(a b (c)) '(a b (c)))", "#t");
+    assert_eval("(equal? '(a b (c)) '(a b c))", "#f");
+    assert_eval("(equal? '(a b (c)) '(a b))", "#f");
+    assert_eval("(equal? '(2) '(2.0))", "#t");
 }

@@ -53,7 +53,11 @@ pub fn get_global_scope() -> Rc<Scope> {
         ("boolean?".to_string(), Rc::new(Object::Function(Function::Pointer(is_boolean)))),
         ("list?".to_string(), Rc::new(Object::Function(Function::Pointer(is_list)))),
         ("pair?".to_string(), Rc::new(Object::Function(Function::Pointer(is_pair)))),
+        ("null?".to_string(), Rc::new(Object::Function(Function::Pointer(is_null)))),
         ("not".to_string(), Rc::new(Object::Function(Function::Pointer(logic_not)))),
+        ("eq?".to_string(), Rc::new(Object::Function(Function::Pointer(fn_eq)))),
+        ("eqv?".to_string(), Rc::new(Object::Function(Function::Pointer(fn_eqv)))),
+        ("equal?".to_string(), Rc::new(Object::Function(Function::Pointer(fn_equal)))),
 
         ("number?".to_string(), Rc::new(Object::Function(Function::Pointer(is_number)))),
         ("integer?".to_string(), Rc::new(Object::Function(Function::Pointer(is_integer)))),

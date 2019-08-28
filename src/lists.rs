@@ -49,3 +49,8 @@ pub fn is_list(obj: Rc<Object>) -> Result<Rc<Object>, String> {
         list_to_vec(vec.get(0).unwrap().as_ref()).is_ok(),
     )))
 }
+
+pub fn is_null(obj: Rc<Object>) -> Result<Rc<Object>, String> {
+    let vec = expect_args(&obj, "null?", 1)?;
+    Ok(Rc::new(Object::Boolean(vec.get(0).unwrap().is_nil())))
+}
