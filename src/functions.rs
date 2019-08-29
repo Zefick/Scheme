@@ -6,6 +6,7 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 pub enum Function {
+    Dynamic(String),
     Pointer(fn(Rc<Object>) -> Result<Rc<Object>, String>),
     Object {
         name: String,
@@ -18,6 +19,7 @@ pub enum Function {
 impl Function {
     pub fn call(&self, args: Rc<Object>) -> Result<Rc<Object>, String> {
         match self {
+            Function::Dynamic(s) => crate::lists::cadr(s, &args),
             Function::Pointer(f) => f(args),
             Function::Object {
                 name,
@@ -109,6 +111,7 @@ impl Function {
 impl PartialEq<Self> for Function {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
+            (Function::Dynamic(s1), Function::Dynamic(s2)) => s1 == s2,
             (Function::Pointer(f1), Function::Pointer(f2)) => f1 == f2,
             _ => std::ptr::eq(self, other),
         }

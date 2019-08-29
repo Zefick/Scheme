@@ -33,8 +33,13 @@ fn eval_test() {
     assert_eval("(car '(1 . 2))", "1");
     assert_eval("(cdr '(1 . 2))", "2");
     assert_eval("(car (cdr '(1 2 3)))", "2");
+    assert_eval("(cadr '(1 2 3))", "2");
+    assert_eval("(cadar '((1 2) 3))", "2");
+    assert_eval("(cddr '(1 2 3))", "(3)");
+    assert_eval("(caaaar '((((1 2 3))) 4))", "1");
     assert_eval("(length '(1 2 3))", "3");
     assert_eval("(cons 1 2)", "(1 . 2)");
+    assert_eval("(cons 1 '(2 3))", "(1 2 3)");
     assert_eval("(list 1 2 3)", "(1 2 3)");
 
     // let, define
@@ -110,6 +115,7 @@ fn eval_test() {
     assert_eval("(let ((a '(a b))) (eqv? (cdr a) (cdr a)))", "#t");
     assert_eval("(let ((a '(a b))) (eqv? (cdr a) '(b)))", "#f");
     assert_eval("(eqv? car car)", "#t");
+    assert_eval("(eqv? cdadar cdadar)", "#t");
 
     assert_eval("(list (eqv? 2 2) (eqv? 2 3) (eqv? 2 2.0))", "(#t #f #t)");
     assert_eval("(list (eq? 2 2) (eq? 2 3) (eq? 2 2.0))", "(#t #f #f)");

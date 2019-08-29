@@ -42,8 +42,6 @@ pub fn get_global_scope() -> Rc<Scope> {
     return Scope::new(&[
         ("#t".to_string(), Rc::new(Object::Boolean(true))),
         ("#f".to_string(), Rc::new(Object::Boolean(false))),
-        ("car".to_string(), Rc::new(Object::Function(Function::Pointer(car)))),
-        ("cdr".to_string(), Rc::new(Object::Function(Function::Pointer(cdr)))),
         ("cons".to_string(), Rc::new(Object::Function(Function::Pointer(cons)))),
         ("list".to_string(), Rc::new(Object::Function(Function::Pointer(list)))),
         ("length".to_string(), Rc::new(Object::Function(Function::Pointer(length)))),

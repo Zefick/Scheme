@@ -6,13 +6,14 @@ use crate::scope::*;
 use std::rc::Rc;
 
 /// Converts lists to Vec of references to its elements.
-pub fn list_to_vec(mut obj: &Object) -> Result<Vec<Rc<Object>>, String> {
+pub fn list_to_vec(obj: &Object) -> Result<Vec<Rc<Object>>, String> {
     let mut result = Vec::new();
-    while let Object::Pair(a, b) = obj {
+    let mut tail = obj;
+    while let Object::Pair(a, b) = tail {
         result.push(Rc::clone(a));
-        obj = b.as_ref();
+        tail = &b;
     }
-    if !obj.is_nil() {
+    if !tail.is_nil() {
         return Err(format!("list required, but got {}", obj).to_string());
     }
     Ok(result)
@@ -80,13 +81,10 @@ fn fn_let(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
         list_to_vec(arg.as_ref()).and_then(|vec| {
             if vec.len() >= 2 {
                 let var = vec.get(0).unwrap().as_ref();
-                match var {
-                    Object::Symbol(s) => {
-                        eval(&vec.get(1).unwrap(), scope).map(|obj| bindings.push((s.clone(), obj)))
-                    }
-                    _ => Err(
-                        format!("let: need a symbol for binding name, got '{}'", var).to_string(),
-                    ),
+                if let Object::Symbol(s) = var {
+                    eval(&vec.get(1).unwrap(), scope).map(|obj| bindings.push((s.clone(), obj)))
+                } else {
+                    Err(format!("let: need a symbol for binding name, got '{}'", var).to_string())
                 }
             } else {
                 Err(format!("let: need a list length 2 for bindings, got '{}'", arg).to_string())
@@ -127,26 +125,26 @@ pub fn fn_define(args: &Object, scope: &Rc<Scope>) -> Result<(), String> {
     if let Object::Pair(head, expr) = args {
         match head.as_ref() {
             // (define x expr)
-            Object::Symbol(s) => match expr.as_ref() {
-                Object::Pair(value, tail) => {
+            Object::Symbol(s) => {
+                if let Object::Pair(value, tail) = expr.as_ref() {
                     if !tail.as_ref().is_nil() {
                         Err("extra argument for 'define'".to_string())
                     } else {
-                        eval(value, scope).map(|obj| scope.as_ref().bind(&s.to_string(), obj))
+                        eval(value, scope).map(|obj| scope.bind(s, obj))
                     }
+                } else {
+                    Err(format!("proper list required for 'define': {}", args).to_string())
                 }
-                _ => Err(format!("proper list required for 'define': {}", args).to_string()),
-            },
+            }
             // (define (name args) body)
-            Object::Pair(name, args) => match name.as_ref() {
-                Object::Symbol(s) => {
-                    (Function::new(s, args, expr, scope)
-                        .map(|obj| scope.as_ref().bind(s, Rc::new(obj))))
-                }
-                _ => {
+            Object::Pair(name, args) => {
+                if let Object::Symbol(s) = name.as_ref() {
+                    scope.bind(s, Rc::new(Function::new(s, args, expr, scope)?));
+                    Ok(())
+                } else {
                     Err(format!("expected symbol as a function name, found '{}'", name).to_string())
                 }
-            },
+            }
             x => Err(format!("proper list or symbol need for 'define', found: {}", x).to_string()),
         }
     } else {
@@ -167,7 +165,14 @@ pub fn eval(obj: &Rc<Object>, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
     match obj.as_ref() {
         // resolve a symbol
         Object::Symbol(s) => {
-            (scope.get(s)).ok_or_else(|| format!("unbound variable '{}'", s).to_string())
+            if (s.starts_with("c") && s.ends_with("r"))
+                && (s.len() >= 3 && s.len() <= 6)
+                && (s[1..s.len() - 1].replace("a", "").replace("d", "")).is_empty()
+            {
+                Ok(Rc::new(Object::Function(Function::Dynamic(s.clone()))))
+            } else {
+                (scope.get(s)).ok_or_else(|| format!("unbound variable '{}'", s).to_string())
+            }
         }
         // invoke a function
         Object::Pair(func, args) => {
