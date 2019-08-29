@@ -1,5 +1,4 @@
 use super::object::*;
-use std::cell::Cell;
 
 #[derive(PartialEq, Debug)]
 enum Token {
@@ -42,7 +41,7 @@ fn parse_number(source: &[char]) -> Result<(usize, Token), ParseErr> {
 }
 
 fn parse_string(source: &[char]) -> Result<(usize, Token), ParseErr> {
-    let mut ptr = 1;
+    let mut ptr = 0;
     loop {
         if ptr < source.len() {
             if source[ptr] == '"' {
@@ -108,7 +107,7 @@ fn tokenize(source: &str) -> Result<Vec<Token>, ParseErr> {
     Ok(result)
 }
 
-/**
+/*
  The language's grammar:
 
  program  ::=  object* End
@@ -124,92 +123,69 @@ pub fn parse_expression(source: &str) -> Result<Vec<Object>, ParseErr> {
     let tokens = &mut tokenize(source)?.into_iter();
     let mut program = Vec::<Object>::new();
     while let Some(t) = tokens.next() {
-        let current = Cell::new(Object::Nil);
-        parse_object(&current, t, tokens)?;
-        program.push(current.take());
+        program.push(parse_object(t, tokens)?);
     }
     Ok(program)
 }
 
-/**
+/*
  * object  ::=  (list
  * object  ::=  'object
  * object  ::=  number | symbol | string
  */
-fn parse_object(
-    current: &Cell<Object>,
-    first: Token,
-    rest: &mut dyn Iterator<Item = Token>,
-) -> Result<(), ParseErr> {
+fn parse_object(first: Token, rest: &mut dyn Iterator<Item = Token>) -> Result<Object, ParseErr> {
     match first {
-        Token::Symbol(s) => current.set(Object::Symbol(s)),
-        Token::String(s) => current.set(Object::String(s)),
-        Token::Float(value) => current.set(Object::Number(Number::Float(value))),
-        Token::Integer(value) => current.set(Object::Number(Number::Integer(value))),
-        Token::Quote => {
-            return rest
-                .next()
-                .map(|token| {
-                    parse_object(current, token, rest)?;
-                    current.set(Object::make_pair(
-                        Object::Symbol("quote".to_string()),
-                        Object::make_pair(current.take(), Object::Nil),
-                    ));
-                    Ok(())
-                })
-                .unwrap_or_else(|| Err(ParseErr("Unexpected end of input".to_string())));
-        }
-        Token::Lpar => {
-            return rest
-                .next()
-                .map(|token| parse_list(current, token, rest))
-                .unwrap_or_else(|| {
-                    Err(ParseErr(
-                        "Unexpected end of input after opening parenthesis".to_string(),
-                    ))
-                });
-        }
-        _ => return Err(ParseErr(format!("Unexpected token: {:?}", first))),
-    };
-    return Ok(());
+        Token::Symbol(s) => Ok(Object::Symbol(s)),
+        Token::String(s) => Ok(Object::String(s)),
+        Token::Float(value) => Ok(Object::Number(Number::Float(value))),
+        Token::Integer(value) => Ok(Object::Number(Number::Integer(value))),
+        Token::Quote => (rest.next())
+            .map(|token| {
+                let current = parse_object(token, rest)?;
+                Ok(Object::make_pair(
+                    Object::Symbol("quote".to_string()),
+                    Object::make_pair(current, Object::Nil),
+                ))
+            })
+            .unwrap_or_else(|| Err(ParseErr("Unexpected end of input".to_string()))),
+        Token::Lpar => (rest.next())
+            .map(|token| parse_list(token, rest))
+            .unwrap_or_else(|| {
+                Err(ParseErr(
+                    "Unexpected end of input after opening parenthesis".to_string(),
+                ))
+            }),
+        _ => Err(ParseErr(format!("Unexpected token: {:?}", first))),
+    }
 }
 
-/**
+/*
  * list  ::=  )
  * list  ::=  . object)
  * list  ::=  object list
  */
-fn parse_list(
-    current: &Cell<Object>,
-    first: Token,
-    rest: &mut dyn Iterator<Item = Token>,
-) -> Result<(), ParseErr> {
+fn parse_list(first: Token, rest: &mut dyn Iterator<Item = Token>) -> Result<Object, ParseErr> {
     match first {
-        Token::Rpar => Ok(()),
+        Token::Rpar => Ok(Object::Nil),
         Token::Dot => (rest.next())
             .map(|token| {
-                parse_object(current, token, rest)?;
+                let current = parse_object(token, rest)?;
                 match rest.next() {
-                    Some(Token::Rpar) => Ok(()),
+                    Some(Token::Rpar) => Ok(current),
                     Some(t) => Err(ParseErr(format!(
-                        "Closing parenthesis expected ({:?} found)",
+                        "Closing parenthesis expected, '{:?}' found",
                         t
                     ))),
                     None => Err(ParseErr(
-                        "Closing parenthesis expected (found end of input)".to_string(),
+                        "Closing parenthesis expected, found end of input".to_string(),
                     )),
                 }
             })
             .unwrap_or_else(|| Err(ParseErr("Unexpected end of input after a dot".to_string()))),
         _ => {
-            parse_object(current, first, rest)?;
-            let head = current.take();
+            let head = parse_object(first, rest)?;
             rest.next()
-                .map(|token| {
-                    parse_list(current, token, rest)?;
-                    current.set(Object::make_pair(head, current.take()));
-                    Ok(())
-                })
+                .map(|token| Ok(Object::make_pair(head, parse_list(token, rest)?)))
                 .unwrap_or_else(|| Err(ParseErr("Unexpected end of input".to_string())))
         }
     }
@@ -240,6 +216,7 @@ mod tests {
         assert_eq!(tokenize("42 3.14").unwrap(),
                     vec![Token::Integer(42), Token::Float(3.14)]);
 
+        assert_eq!(tokenize("\"\"").unwrap(), vec![Token::String("".to_string())]);
         assert_eq!(tokenize("\"❤\"").unwrap(), vec![Token::String("❤".to_string())]);
 
         assert!(tokenize("\"   ").is_err());

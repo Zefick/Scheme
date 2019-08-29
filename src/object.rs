@@ -34,12 +34,6 @@ impl Object {
     }
 }
 
-impl Default for Object {
-    fn default() -> Self {
-        Object::Nil
-    }
-}
-
 impl Debug for Object {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
@@ -58,20 +52,19 @@ impl Debug for Object {
 /// Display provides prettier output of lists then Debug
 impl Display for Object {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        match self {
-            Object::Pair(head, tail) => {
-                let mut s = String::new();
-                let mut obj = tail.as_ref();
-                while let Object::Pair(car, cdr) = obj {
-                    s += &format!(" {}", car);
-                    obj = cdr.as_ref();
-                }
-                if !obj.is_nil() {
-                    s += &(format!(" . {:?}", obj));
-                }
-                write!(f, "({}{})", head, s)
+        if let Object::Pair(head, tail) = self {
+            let mut s = String::new();
+            let mut obj = tail.as_ref();
+            while let Object::Pair(car, cdr) = obj {
+                s += &format!(" {}", car);
+                obj = cdr.as_ref();
             }
-            _ => (self as &dyn Debug).fmt(f),
+            if !obj.is_nil() {
+                s += &(format!(" . {:?}", obj));
+            }
+            write!(f, "({}{})", head, s)
+        } else {
+            write!(f, "{:?}", self)
         }
     }
 }
