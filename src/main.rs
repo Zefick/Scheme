@@ -6,6 +6,7 @@ mod math;
 mod object;
 mod parser;
 mod scope;
+mod service;
 
 #[cfg(test)]
 mod tests;

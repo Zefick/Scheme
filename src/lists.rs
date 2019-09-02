@@ -1,10 +1,11 @@
-use crate::eval::*;
 use crate::object::Object;
+use crate::service::*;
+
 use std::rc::Rc;
 
 /// The family of functions which names match with pattern `c[ad]{1,4}r`.
 pub fn cadr(name: &str, obj: &Rc<Object>) -> Result<Rc<Object>, String> {
-    let mut obj = expect_args(&obj, name, 1)?.pop().unwrap();
+    let mut obj = expect_1_arg(&obj, name)?;
     for op in name[1..name.len() - 1].chars().rev() {
         let pair = check_pair(&obj)?;
         obj = Rc::clone(if op == 'a' { pair.0 } else { pair.1 });
@@ -13,12 +14,8 @@ pub fn cadr(name: &str, obj: &Rc<Object>) -> Result<Rc<Object>, String> {
 }
 
 pub fn cons(obj: Rc<Object>) -> Result<Rc<Object>, String> {
-    expect_args(&obj, "cons", 2).map(|vec| {
-        Rc::new(Object::Pair(
-            Rc::clone(vec.get(0).unwrap()),
-            Rc::clone(vec.get(1).unwrap()),
-        ))
-    })
+    let (car, cdr) = expect_2_args(&obj, "cons")?;
+    Ok(Rc::new(Object::Pair(car, cdr)))
 }
 
 pub fn list(obj: Rc<Object>) -> Result<Rc<Object>, String> {
@@ -26,26 +23,21 @@ pub fn list(obj: Rc<Object>) -> Result<Rc<Object>, String> {
 }
 
 pub fn length(obj: Rc<Object>) -> Result<Rc<Object>, String> {
-    let vec = expect_args(&obj, "length", 1)?;
-    let len = list_to_vec(vec.get(0).unwrap())?.len();
+    let len = list_to_vec(expect_1_arg(&obj, "length")?.as_ref())?.len();
     Ok(Rc::new(Object::make_int(len as i32)))
 }
 
 pub fn is_pair(obj: Rc<Object>) -> Result<Rc<Object>, String> {
-    let vec = expect_args(&obj, "pair?", 1)?;
-    Ok(Rc::new(Object::Boolean(
-        check_pair(vec.get(0).unwrap()).is_ok(),
-    )))
+    let arg = expect_1_arg(&obj, "pair?")?;
+    Ok(Rc::new(Object::Boolean(check_pair(&arg).is_ok())))
 }
 
 pub fn is_list(obj: Rc<Object>) -> Result<Rc<Object>, String> {
-    let vec = expect_args(&obj, "list?", 1)?;
-    Ok(Rc::new(Object::Boolean(
-        list_to_vec(vec.get(0).unwrap()).is_ok(),
-    )))
+    let arg = expect_1_arg(&obj, "list?")?;
+    Ok(Rc::new(Object::Boolean(list_to_vec(&arg).is_ok())))
 }
 
 pub fn is_null(obj: Rc<Object>) -> Result<Rc<Object>, String> {
-    let vec = expect_args(&obj, "null?", 1)?;
-    Ok(Rc::new(Object::Boolean(vec.get(0).unwrap().is_nil())))
+    let arg = expect_1_arg(&obj, "null?")?;
+    Ok(Rc::new(Object::Boolean(arg.is_nil())))
 }

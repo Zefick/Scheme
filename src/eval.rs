@@ -2,57 +2,9 @@ use crate::functions::*;
 use crate::logic::*;
 use crate::object::*;
 use crate::scope::*;
+use crate::service::*;
 
 use std::rc::Rc;
-
-/// Converts lists to Vec of references to its elements.
-pub fn list_to_vec(obj: &Object) -> Result<Vec<Rc<Object>>, String> {
-    let mut result = Vec::new();
-    let mut tail = obj;
-    while let Object::Pair(a, b) = tail {
-        result.push(Rc::clone(a));
-        tail = &b;
-    }
-    if !tail.is_nil() {
-        return Err(format!("list required, but got {}", obj).to_string());
-    }
-    Ok(result)
-}
-
-/// Converts Vec of references to a list object.
-///
-/// This function always succeeds.
-pub fn vec_to_list(vec: Vec<Rc<Object>>) -> Object {
-    let mut tail = Object::Nil;
-    for element in vec.iter().rev() {
-        tail = Object::Pair(Rc::clone(element), Rc::new(tail));
-    }
-    tail
-}
-
-/// Ensures that given object is a list with length `n`
-pub fn expect_args(args: &Object, func: &str, n: usize) -> Result<Vec<Rc<Object>>, String> {
-    let vec = list_to_vec(args)?;
-    if vec.len() != n {
-        Err(format!(
-            "Wrong number or arguments for '{}': {}",
-            func,
-            vec.len()
-        ))
-    } else {
-        Ok(vec)
-    }
-}
-
-/// Ensures that given object is a pair or returns an Err.
-/// Since Rust doesn't support types for enum variants,
-/// we are forced to use a tuple for the Ok value.
-pub fn check_pair(obj: &Object) -> Result<(&Rc<Object>, &Rc<Object>), String> {
-    match obj {
-        Object::Pair(x, y) => Ok((x, y)),
-        x => Err(format!("pair required but got {}", x).to_string()),
-    }
-}
 
 pub fn eval_args(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
     Ok(Rc::new(match args {
@@ -62,8 +14,7 @@ pub fn eval_args(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String>
 }
 
 fn quote(args: &Object) -> Result<Rc<Object>, String> {
-    expect_args(args, "quote", 1)
-        .and_then(|vec| Ok(Rc::clone(vec.get(0).unwrap())))
+    expect_1_arg(args, "quote")
         .or_else(|_| Err(format!("malformed quote: need 1 argument, got {}", args).to_string()))
 }
 
@@ -110,10 +61,6 @@ pub fn fn_begin_vec(
 
 pub fn fn_begin(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
     fn_begin_vec(list_to_vec(args)?.into_iter(), scope)
-}
-
-pub fn undef() -> Rc<Object> {
-    Rc::new(Object::Symbol("#<undef>".to_string()))
 }
 
 /// There are two forms of define:

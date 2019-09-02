@@ -1,6 +1,7 @@
 use crate::eval::*;
 use crate::object::Object;
 use crate::scope::Scope;
+use crate::service::{list_to_vec, vec_to_list};
 
 use std::collections::HashSet;
 use std::rc::Rc;

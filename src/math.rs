@@ -1,7 +1,7 @@
-use crate::eval::{expect_args, list_to_vec};
 use crate::object::Number::{Float, Integer};
 use crate::object::Object::Boolean;
 use crate::object::{Number, Object};
+use crate::service::*;
 
 use std::rc::Rc;
 
@@ -15,23 +15,19 @@ fn normalize(x: Number) -> Number {
 }
 
 pub fn is_number(args: Rc<Object>) -> Result<Rc<Object>, String> {
-    let vec = expect_args(&args, "number?", 1)?;
-    Ok(Rc::new(Object::Boolean(
-        match vec.get(0).unwrap().as_ref() {
-            Object::Number(_) => true,
-            _ => false,
-        },
-    )))
+    let arg = expect_1_arg(&args, "number?")?;
+    Ok(Rc::new(Object::Boolean(match arg.as_ref() {
+        Object::Number(_) => true,
+        _ => false,
+    })))
 }
 
 pub fn is_integer(args: Rc<Object>) -> Result<Rc<Object>, String> {
-    let vec = expect_args(&args, "integer?", 1)?;
-    Ok(Rc::new(Object::Boolean(
-        match vec.get(0).unwrap().as_ref() {
-            Object::Number(Number::Integer(_)) => true,
-            _ => false,
-        },
-    )))
+    let arg = expect_1_arg(&args, "integer?")?;
+    Ok(Rc::new(Object::Boolean(match arg.as_ref() {
+        Object::Number(Number::Integer(_)) => true,
+        _ => false,
+    })))
 }
 
 pub fn is_real(args: Rc<Object>) -> Result<Rc<Object>, String> {

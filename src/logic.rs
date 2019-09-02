@@ -2,6 +2,7 @@ use crate::eval::*;
 use crate::math::num_equal;
 use crate::object::Object;
 use crate::scope::Scope;
+use crate::service::*;
 
 use std::rc::Rc;
 
@@ -49,8 +50,8 @@ pub fn cond(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
 }
 
 pub fn is_boolean(args: Rc<Object>) -> Result<Rc<Object>, String> {
-    expect_args(&args, "boolean?", 1).map(|vec| {
-        make_boolean(match vec.get(0).unwrap().as_ref() {
+    expect_1_arg(&args, "boolean?").map(|arg| {
+        make_boolean(match arg.as_ref() {
             Object::Boolean(_) => true,
             _ => false,
         })
@@ -58,7 +59,7 @@ pub fn is_boolean(args: Rc<Object>) -> Result<Rc<Object>, String> {
 }
 
 pub fn logic_not(args: Rc<Object>) -> Result<Rc<Object>, String> {
-    expect_args(&args, "not", 1).map(|vec| make_boolean(!vec.get(0).unwrap().is_true()))
+    Ok(make_boolean(!expect_1_arg(&args, "not")?.is_true()))
 }
 
 pub fn logic_and(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
@@ -98,22 +99,17 @@ fn object_equal(obj1: &Rc<Object>, obj2: &Rc<Object>) -> bool {
 /// The softest of equality functions.
 /// Recursively compares the contents of pairs, applying `eqv?` on other objects
 pub fn fn_equal(args: Rc<Object>) -> Result<Rc<Object>, String> {
-    let vec = expect_args(args.as_ref(), "equal?", 2)?;
-    Ok(make_boolean(object_equal(
-        vec.get(0).unwrap(),
-        vec.get(1).unwrap(),
-    )))
+    let (obj1, obj2) = expect_2_args(args.as_ref(), "equal?")?;
+    Ok(make_boolean(object_equal(&obj1, &obj2)))
 }
 
 /// Consider pairs are the same even if it's the same objects
 /// So two distinct lists with the same content still different for `eqv?`
 pub fn fn_eqv(args: Rc<Object>) -> Result<Rc<Object>, String> {
-    let vec = expect_args(args.as_ref(), "eqv?", 2)?;
-    let obj1 = vec.get(0).unwrap();
-    let obj2 = vec.get(1).unwrap();
+    let (obj1, obj2) = expect_2_args(args.as_ref(), "eqv?")?;
     let result = match (obj1.as_ref(), obj2.as_ref()) {
         (Object::Pair(..), Object::Pair(..)) => std::ptr::eq(obj1.as_ref(), obj2.as_ref()),
-        _ => object_equal(obj1, obj2),
+        _ => object_equal(&obj1, &obj2),
     };
     return Ok(make_boolean(result));
 }
@@ -122,8 +118,8 @@ pub fn fn_eqv(args: Rc<Object>) -> Result<Rc<Object>, String> {
 /// and returns `false` if they are not match
 /// even if the numbers are the same for `eqv?` (e.g. 1 and 1.0)
 pub fn fn_eq(args: Rc<Object>) -> Result<Rc<Object>, String> {
-    let vec = expect_args(args.as_ref(), "eq?", 2)?;
-    let result = match (vec.get(0).unwrap().as_ref(), vec.get(1).unwrap().as_ref()) {
+    let (obj1, obj2) = expect_2_args(args.as_ref(), "eq?")?;
+    let result = match (obj1.as_ref(), obj2.as_ref()) {
         (Object::Number(n1), Object::Number(n2)) => n1 == n2,
         _ => return fn_eqv(args),
     };
