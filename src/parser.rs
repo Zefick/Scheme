@@ -191,11 +191,6 @@ fn parse_list(first: Token, rest: &mut dyn Iterator<Item = Token>) -> Result<Obj
     }
 }
 
-pub fn debug_expression(input: &str) {
-    print!("{:?}\n", tokenize(input));
-    print!("{:?}\n", parse_expression(input));
-}
-
 #[cfg(test)]
 #[rustfmt::skip]
 mod tests {
