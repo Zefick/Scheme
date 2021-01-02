@@ -1,10 +1,15 @@
-use crate::eval::*;
-use crate::parser::parse_expression;
-use crate::scope::get_global_scope;
 use std::rc::Rc;
 
+use crate::eval::*;
+use crate::eval_file;
+use crate::parser::parse_expression;
+use crate::scope::*;
+
 fn assert_eval(expr: &str, expected: &str) {
-    let scope = get_global_scope();
+    assert_eval_with_scope(&get_global_scope(), expr, expected);
+}
+
+fn assert_eval_with_scope(scope: &Rc<Scope>, expr: &str, expected: &str) {
     let obj = parse_expression(expr).unwrap().pop().unwrap();
     eval(&Rc::new(obj), &scope)
         .map(|obj| assert_eq!(format!("{}", obj), expected))
@@ -12,7 +17,7 @@ fn assert_eval(expr: &str, expected: &str) {
 }
 
 fn expect_err(expr: &str) {
-    let scope = get_global_scope();
+    let scope = Scope::new(&[], Some(&get_global_scope()));
     let obj = parse_expression(expr).unwrap().pop().unwrap();
     eval(&Rc::new(obj), &scope).expect_err(format!("error expected for {}", expr).as_str());
 }
@@ -124,4 +129,12 @@ fn eval_test() {
     assert_eval("(equal? '(a b (c)) '(a b c))", "#f");
     assert_eval("(equal? '(a b (c)) '(a b))", "#f");
     assert_eval("(equal? '(2) '(2.0))", "#t");
+
+    // test functions from the prelude
+    let scope = &get_global_scope();
+    assert!(eval_file("prelude.scm", scope).is_ok());
+    assert_eval_with_scope(scope, "(foldr cons '() '(1 2 3))", "(1 2 3)");
+    assert_eval_with_scope(scope, "(foldl cons '() '(1 2 3))", "(((() . 1) . 2) . 3)");
+    assert_eval_with_scope(scope, "(append '(1 2) '(3 4))", "(1 2 3 4)");
+    assert_eval_with_scope(scope, "(reverse '(1 2 3 4))", "(4 3 2 1)");
 }
