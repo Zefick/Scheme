@@ -1,3 +1,4 @@
+use crate::errors::EvalErr;
 use crate::eval::*;
 use crate::math::num_equal;
 use crate::object::Object;
@@ -10,7 +11,7 @@ fn make_boolean(b: bool) -> Rc<Object> {
     Rc::new(Object::Boolean(b))
 }
 
-pub fn fn_if(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
+pub fn fn_if(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
     let vec = expect_args(args, "if", 3)?;
     let mut vec = vec.into_iter();
     if !eval(&vec.next().unwrap(), scope)?.is_true() {
@@ -19,15 +20,15 @@ pub fn fn_if(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
     eval(&vec.next().unwrap(), scope)
 }
 
-pub fn cond(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
+pub fn cond(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
     let cond_list = list_to_vec(args)?;
     if cond_list.is_empty() {
-        return Err(format!("'cond' need at least 1 clause"));
+        return Err(EvalErr::CondNeedsClause());
     }
     for condition in cond_list {
         let vec = list_to_vec(condition.as_ref())?;
         if vec.is_empty() {
-            return Err(format!("empty clause for 'cond'"));
+            return Err(EvalErr::CondEmptyClause());
         }
         let predicate = vec.get(0).unwrap();
         let mut is_true = false;
@@ -49,7 +50,7 @@ pub fn cond(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
     Ok(undef())
 }
 
-pub fn is_boolean(args: Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn is_boolean(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     expect_1_arg(&args, "boolean?").map(|arg| {
         make_boolean(match arg.as_ref() {
             Object::Boolean(_) => true,
@@ -58,11 +59,11 @@ pub fn is_boolean(args: Rc<Object>) -> Result<Rc<Object>, String> {
     })
 }
 
-pub fn logic_not(args: Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn logic_not(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     Ok(make_boolean(!expect_1_arg(&args, "not")?.is_true()))
 }
 
-pub fn logic_and(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
+pub fn logic_and(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
     let vec = list_to_vec(&args)?;
     let mut result = make_boolean(true);
     for obj in vec {
@@ -76,7 +77,7 @@ pub fn logic_and(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String>
     return Ok(result);
 }
 
-pub fn logic_or(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
+pub fn logic_or(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
     for obj in list_to_vec(args)? {
         let x = eval(&obj, scope)?;
         if x.is_true() {
@@ -98,14 +99,14 @@ fn object_equal(obj1: &Rc<Object>, obj2: &Rc<Object>) -> bool {
 
 /// The softest of equality functions.
 /// Recursively compares the contents of pairs, applying `eqv?` on other objects
-pub fn fn_equal(args: Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn fn_equal(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     let (obj1, obj2) = expect_2_args(args.as_ref(), "equal?")?;
     Ok(make_boolean(object_equal(&obj1, &obj2)))
 }
 
 /// Consider pairs are the same even if it's the same objects
 /// So two distinct lists with the same content still different for `eqv?`
-pub fn fn_eqv(args: Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn fn_eqv(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     let (obj1, obj2) = expect_2_args(args.as_ref(), "eqv?")?;
     let result = match (obj1.as_ref(), obj2.as_ref()) {
         (Object::Pair(..), Object::Pair(..)) => std::ptr::eq(obj1.as_ref(), obj2.as_ref()),
@@ -117,7 +118,7 @@ pub fn fn_eqv(args: Rc<Object>) -> Result<Rc<Object>, String> {
 /// The difference between `eq?` and `eqv?` is that `eq?` taking into account the type of numbers
 /// and returns `false` if they are not match
 /// even if the numbers are the same for `eqv?` (e.g. 1 and 1.0)
-pub fn fn_eq(args: Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn fn_eq(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     let (obj1, obj2) = expect_2_args(args.as_ref(), "eq?")?;
     let result = match (obj1.as_ref(), obj2.as_ref()) {
         (Object::Number(n1), Object::Number(n2)) => n1 == n2,

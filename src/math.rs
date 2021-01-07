@@ -1,3 +1,4 @@
+use crate::errors::EvalErr;
 use crate::object::Number::{Float, Integer};
 use crate::object::Object::Boolean;
 use crate::object::{Number, Object};
@@ -14,7 +15,7 @@ fn normalize(x: Number) -> Number {
     x.clone()
 }
 
-pub fn is_number(args: Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn is_number(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     let arg = expect_1_arg(&args, "number?")?;
     Ok(Rc::new(Object::Boolean(match arg.as_ref() {
         Object::Number(_) => true,
@@ -22,7 +23,7 @@ pub fn is_number(args: Rc<Object>) -> Result<Rc<Object>, String> {
     })))
 }
 
-pub fn is_integer(args: Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn is_integer(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     let arg = expect_1_arg(&args, "integer?")?;
     Ok(Rc::new(Object::Boolean(match arg.as_ref() {
         Object::Number(Number::Integer(_)) => true,
@@ -30,7 +31,7 @@ pub fn is_integer(args: Rc<Object>) -> Result<Rc<Object>, String> {
     })))
 }
 
-pub fn is_real(args: Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn is_real(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     is_number(args)
 }
 
@@ -41,10 +42,10 @@ fn get_float(num: &Number) -> f64 {
     };
 }
 
-fn check_nums<'a, 'b>(x: &'a Object, y: &'b Object) -> Result<(&'a Number, &'b Number), String> {
+fn check_nums<'a, 'b>(x: &'a Object, y: &'b Object) -> Result<(&'a Number, &'b Number), ()> {
     match (x, y) {
         (Object::Number(a), Object::Number(b)) => Ok((a, b)),
-        _ => Err("number arguments required".to_string()),
+        _ => Err(()),
     }
 }
 
@@ -52,15 +53,15 @@ fn num_predicate(
     args: Rc<Object>,
     name: &'static str,
     f: fn(&Number, &Number) -> bool,
-) -> Result<Rc<Object>, String> {
+) -> Result<Rc<Object>, EvalErr> {
     let vec = list_to_vec(&args)?;
     if vec.len() < 2 {
-        Err(format!("'{}' need at least 2 arguments", name).to_string())
+        Err(EvalErr::NeedAtLeastArgs(name.to_string(), 2, vec.len()))
     } else {
         let mut result = true;
         for i in 0..vec.len() - 1 {
             if !check_nums(vec.get(i).unwrap(), vec.get(i + 1).unwrap())
-                .map_err(|_| format!("numeric arguments required for '{}'", name).to_string())
+                .map_err(|_| EvalErr::NumericArgsRequiredFor(name.to_string()))
                 .map(|(x, y)| f(x, y))?
             {
                 result = false;
@@ -78,25 +79,25 @@ pub fn num_equal(n1: &Number, n2: &Number) -> bool {
     }
 }
 
-pub fn num_eqv(args: Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn num_eqv(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     num_predicate(args, "=", num_equal)
 }
 
-pub fn num_less(args: Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn num_less(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     num_predicate(args, "<", |x, y| match (x, y) {
         (Integer(a), Integer(b)) => a < b,
         (a, b) => get_float(a) < get_float(b),
     })
 }
 
-pub fn num_greater(args: Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn num_greater(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     num_predicate(args, ">", |x, y| match (x, y) {
         (Integer(a), Integer(b)) => a > b,
         (a, b) => get_float(a) > get_float(b),
     })
 }
 
-pub fn num_plus(args: Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn num_plus(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     let mut acc = Number::Integer(0);
     for n in list_to_vec(&args)? {
         if let Object::Number(n) = n.as_ref() {
@@ -105,13 +106,13 @@ pub fn num_plus(args: Rc<Object>) -> Result<Rc<Object>, String> {
                 (a, b) => Number::Float(get_float(&a) + get_float(b)),
             }
         } else {
-            return Err("numeric arguments required for '+'".to_string());
+            return Err(EvalErr::NumericArgsRequiredFor("+".to_string()));
         }
     }
     Ok(Rc::new(Object::Number(acc)))
 }
 
-pub fn num_mul(args: Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn num_mul(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     let mut acc = Number::Integer(1);
     for n in list_to_vec(&args)? {
         if let Object::Number(n) = n.as_ref() {
@@ -120,13 +121,13 @@ pub fn num_mul(args: Rc<Object>) -> Result<Rc<Object>, String> {
                 (a, b) => Number::Float(get_float(&a) * get_float(b)),
             }
         } else {
-            return Err("numeric arguments required for '*'".to_string());
+            return Err(EvalErr::NumericArgsRequiredFor("*".to_string()));
         }
     }
     Ok(Rc::new(Object::Number(acc)))
 }
 
-pub fn num_minus(args: Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn num_minus(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     let vec = list_to_vec(&args)?;
     let mut result = Number::Integer(0);
     for n in 0..vec.len() {
@@ -140,13 +141,13 @@ pub fn num_minus(args: Rc<Object>) -> Result<Rc<Object>, String> {
                 };
             }
         } else {
-            return Err("numeric arguments required for '-'".to_string());
+            return Err(EvalErr::NumericArgsRequiredFor("-".to_string()));
         }
     }
     Ok(Rc::new(Object::Number(result)))
 }
 
-pub fn num_div(args: Rc<Object>) -> Result<Rc<Object>, String> {
+pub fn num_div(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     let vec = list_to_vec(&args)?;
     let mut result = Number::Integer(1);
     for n in 0..vec.len() {
@@ -159,12 +160,12 @@ pub fn num_div(args: Rc<Object>) -> Result<Rc<Object>, String> {
                     Float(x) => *x == 0.0,
                     _ => false,
                 } {
-                    return Err("division by 0".to_string());
+                    return Err(EvalErr::DivisionByZero());
                 }
                 result = Number::Float(get_float(&result) / get_float(x));
             }
         } else {
-            return Err("numeric arguments required for '/'".to_string());
+            return Err(EvalErr::NumericArgsRequiredFor("/".to_string()));
         }
     }
     Ok(Rc::new(Object::Number(normalize(result))))

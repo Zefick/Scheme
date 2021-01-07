@@ -1,4 +1,6 @@
 use super::object::*;
+use crate::errors::ParseErr;
+use std::fmt::Debug;
 
 #[derive(PartialEq, Debug)]
 enum Token {
@@ -12,8 +14,20 @@ enum Token {
     String(String),
 }
 
-#[derive(Debug)]
-pub struct ParseErr(pub String);
+impl ToString for Token {
+    fn to_string(&self) -> String {
+        match self {
+            Token::Lpar => "(".to_string(),
+            Token::Rpar => ")".to_string(),
+            Token::Dot => ".".to_string(),
+            Token::Quote => "'".to_string(),
+            Token::Integer(x) => x.to_string(),
+            Token::Float(x) => x.to_string(),
+            Token::Symbol(x) => x.into(),
+            Token::String(x) => x.into(),
+        }
+    }
+}
 
 const SYMBOLS_ALLOWED: &str = "+-.*/<=>!?:$%_&~^#";
 
@@ -24,7 +38,7 @@ fn parse_number(source: &[char]) -> Result<(usize, Token), ParseErr> {
         let c = source[ptr];
         if c == '.' {
             if real {
-                return Err(ParseErr("Wrong floating point formatting".to_string()));
+                return Err(ParseErr::WrongFP);
             }
             real = true;
         } else if !c.is_digit(10) {
@@ -49,7 +63,7 @@ fn parse_string(source: &[char]) -> Result<(usize, Token), ParseErr> {
             }
             ptr += 1;
         } else {
-            return Err(ParseErr("String literal didn't close".to_string()));
+            return Err(ParseErr::UnclosedString);
         }
     }
 }
@@ -147,15 +161,11 @@ fn parse_object(first: Token, rest: &mut dyn Iterator<Item = Token>) -> Result<O
                     Object::make_pair(current, Object::Nil),
                 ))
             })
-            .unwrap_or_else(|| Err(ParseErr("Unexpected end of input".to_string()))),
+            .unwrap_or_else(|| Err(ParseErr::Unexpected_EOF)),
         Token::Lpar => (rest.next())
             .map(|token| parse_list(token, rest))
-            .unwrap_or_else(|| {
-                Err(ParseErr(
-                    "Unexpected end of input after opening parenthesis".to_string(),
-                ))
-            }),
-        _ => Err(ParseErr(format!("Unexpected token: {:?}", first))),
+            .unwrap_or_else(|| Err(ParseErr::Unexpected_EOF_AfterPars)),
+        _ => Err(ParseErr::UnexpectedToken(format!("{:?}", first))),
     }
 }
 
@@ -172,21 +182,16 @@ fn parse_list(first: Token, rest: &mut dyn Iterator<Item = Token>) -> Result<Obj
                 let current = parse_object(token, rest)?;
                 match rest.next() {
                     Some(Token::Rpar) => Ok(current),
-                    Some(t) => Err(ParseErr(format!(
-                        "Closing parenthesis expected, '{:?}' found",
-                        t
-                    ))),
-                    None => Err(ParseErr(
-                        "Closing parenthesis expected, found end of input".to_string(),
-                    )),
+                    Some(t) => Err(ParseErr::ClosingParExpected(t.to_string())),
+                    None => Err(ParseErr::ClosingParExpected_EOF),
                 }
             })
-            .unwrap_or_else(|| Err(ParseErr("Unexpected end of input after a dot".to_string()))),
+            .unwrap_or_else(|| Err(ParseErr::Unexpected_EOF_AfterDot)),
         _ => {
             let head = parse_object(first, rest)?;
             rest.next()
                 .map(|token| Ok(Object::make_pair(head, parse_list(token, rest)?)))
-                .unwrap_or_else(|| Err(ParseErr("Unexpected end of input".to_string())))
+                .unwrap_or_else(|| Err(ParseErr::Unexpected_EOF))
         }
     }
 }
@@ -194,28 +199,41 @@ fn parse_list(first: Token, rest: &mut dyn Iterator<Item = Token>) -> Result<Obj
 #[cfg(test)]
 #[rustfmt::skip]
 mod tests {
-
     use super::*;
+
+    fn expect_err(source: &str, expected: ParseErr) {
+        let result = parse_expression(source);
+        match result {
+            Ok(_) => {
+                panic!(format!("Error \"{}\" expected for \"{}\"", expected, source))
+            }
+            Err(thrown) => {
+                if thrown != expected {
+                    panic!(format!("Error \"{}\" expected for \"{}\", \"{}\" thrown", expected, source, thrown))
+                }
+            }
+        }
+    }
 
     #[test]
     fn lexer_test() {
         assert!(tokenize(" \t \n ; qqq ").unwrap().is_empty());
 
         assert_eq!(tokenize("(.')").unwrap(),
-                    vec![Token::Lpar, Token::Dot, Token::Quote, Token::Rpar]);
+                   vec![Token::Lpar, Token::Dot, Token::Quote, Token::Rpar]);
 
         assert_eq!(tokenize("\"str\" symbol").unwrap(),
-                    vec![Token::String("str".to_string()),
+                   vec![Token::String("str".to_string()),
                         Token::Symbol("symbol".to_string())]);
 
         assert_eq!(tokenize("42 3.14").unwrap(),
-                    vec![Token::Integer(42), Token::Float(3.14)]);
+                   vec![Token::Integer(42), Token::Float(3.14)]);
 
         assert_eq!(tokenize("\"\"").unwrap(), vec![Token::String("".to_string())]);
         assert_eq!(tokenize("\"❤\"").unwrap(), vec![Token::String("❤".to_string())]);
 
-        assert!(tokenize("\"   ").is_err());
-        assert!(tokenize("1.23.456").is_err());
+        expect_err("\"   ", ParseErr::UnclosedString);
+        expect_err("1.23.456", ParseErr::WrongFP);
     }
 
     #[test]
@@ -237,9 +255,8 @@ mod tests {
                                           Object::make_pair(Object::make_int(3), Object::Nil)),
                         Object::Nil]);
 
-        assert!(parse_expression("(").is_err());
-        assert!(parse_expression("(1 .").is_err());
-        assert!(parse_expression("(1 . 2 .").is_err());
+        expect_err("(", ParseErr::Unexpected_EOF_AfterPars);
+        expect_err("(1 .", ParseErr::Unexpected_EOF_AfterDot);
+        expect_err("(1 . 2 .", ParseErr::ClosingParExpected(".".to_string()));
     }
-
 }

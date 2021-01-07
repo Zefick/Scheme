@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use crate::errors::EvalErr;
 use crate::eval::*;
 use crate::eval_file;
 use crate::parser::parse_expression;
@@ -16,10 +17,24 @@ fn assert_eval_with_scope(scope: &Rc<Scope>, expr: &str, expected: &str) {
         .unwrap_or_else(|err| panic!(err));
 }
 
-fn expect_err(expr: &str) {
+fn expect_err(expr: &str, expected: EvalErr) {
     let scope = Scope::new(&[], Some(&get_global_scope()));
     let obj = parse_expression(expr).unwrap().pop().unwrap();
-    eval(&Rc::new(obj), &scope).expect_err(format!("error expected for {}", expr).as_str());
+    let result = eval(&Rc::new(obj), &scope);
+    match result {
+        Ok(_) => panic!(format!(
+            "expression {} expected to evaluate with the error\n\"{}\"",
+            expr, expected
+        )),
+        Err(err) => {
+            if err != expected {
+                panic!(format!(
+                    "expression \"{}\" expected to evaluate with the error\n\"{}\" but the actual error is \n\"{}\"",
+                    expr, expected, err
+                ));
+            }
+        }
+    }
 }
 
 #[test]
@@ -30,9 +45,9 @@ fn eval_test() {
     assert_eval("(begin 1 2 3)", "3");
     assert_eval("'1", "1");
     assert_eval("'''foo", "(quote (quote foo))");
-    expect_err("(list a)");                   // unbound variable
-    expect_err("(begin 1 . 2)");              // not a proper list
-    expect_err("(quote 1 2)");                // malformed quote
+    expect_err("(list a)", EvalErr::UnboundVariable("a".to_string()));
+    expect_err("(begin 1 . 2)", EvalErr::ListRequired("(1 . 2)".to_string()));
+    expect_err("(quote 1 2)", EvalErr::WrongAgrsNum("quote".to_string(), 1, 2));
 
     // list and pairs functions
     assert_eval("(car '(1 . 2))", "1");
@@ -60,16 +75,16 @@ fn eval_test() {
     assert_eval("((lambda x x) 1 2 3)", "(1 2 3)");
     assert_eval("((lambda (x . y) y) 1 2 3)", "(2 3)");
     assert_eval("(begin (define f (lambda (x) x)) (f 'foo))", "foo");
-    expect_err("(lambda (1) a)");             // wrong argument type
-    expect_err("(lambda (x x) x)");           // duplication of argument id
-    expect_err("((lambda (a b) a) 1)");       // too few arguments given
-    expect_err("((lambda (a b) a) 1 2 3)");   // too many arguments given
+    expect_err("(lambda (1) a)", EvalErr::ExpectedSymbolForArgument("1".to_string()));
+    expect_err("(lambda (x x) x)", EvalErr::ArgumentDuplication("x".to_string()));
+    expect_err("((lambda (a b) a) 1)", EvalErr::TooFewArguments("#<lambda>".to_string()));
+    expect_err("((lambda (a b) a) 1 2 3)", EvalErr::TooManyArguments("#<lambda>".to_string()));
 
     // logic functions
     assert_eval("(if #t 1 2)", "1");
     assert_eval("(if #f 1 2)", "2");
     assert_eval("(or 5 foo #f)", "5");
-    expect_err("(or #f foo)");                // unbound variable
+    expect_err("(or #f foo)", EvalErr::UnboundVariable("foo".to_string()));
     assert_eval("(and 5 'foo 42)", "42");
     assert_eval("(list (boolean? #f) (boolean? 5))", "(#t #f)");
     assert_eval("(list (null? #t) (null? '(5)) (null? '()) (null? (cdr '(5))))", "(#f #f #t #t)");
@@ -95,20 +110,20 @@ fn eval_test() {
     assert_eval("(list (*) (* 2) (* 1 2 3.5))", "(1 2 7)");
     assert_eval("(list (/) (/ 2) (/ 2 1))", "(1 0.5 2)");
     assert_eval("(list (integer? (/ 2 1)) (integer? (/ 1 2)))", "(#t #f)");
-    expect_err("(= 1 foo)");                 // wrong arguments
-    expect_err("(+ 1 'foo)");                // wrong type
-    expect_err("(/1 2 0)");                  // division by 0
+    expect_err("(= 1 foo)", EvalErr::UnboundVariable("foo".to_string()));
+    expect_err("(+ 1 'foo)", EvalErr::NumericArgsRequiredFor("+".to_string()));
+    expect_err("(/ 1 2 0)", EvalErr::DivisionByZero());
     
     assert_eval("(apply list '(1 2 3))", "(1 2 3)");
     assert_eval("(apply list 1 2 '(3 4))", "(1 2 3 4)");
     assert_eval("(let ((foo (lambda (x) (+ x 10)))) (apply foo '(0)))", "10");
-    expect_err("(apply + 1 2 3)");           // improper list
-    expect_err("(apply +)");
+    expect_err("(apply + 1 2 3)", EvalErr::ApplyNeedsProperList("3".to_string()));
+    expect_err("(apply +)", EvalErr::NeedAtLeastArgs("apply".to_string(), 2, 1));
 
     assert_eval("(map list '(1 2 3))", "((1) (2) (3))");
     assert_eval("(map list '(1 2 3) '(4 5 6))", "((1 4) (2 5) (3 6))");
-    expect_err("(map + '(1 2) '(4 5 6))");   // lists length don't match
-    expect_err("(map +)");
+    expect_err("(map + '(1 2) '(4 5 6))", EvalErr::UnequalMapLists());
+    expect_err("(map +)", EvalErr::NeedAtLeastArgs("map".to_string(), 2, 1));
     
     // equalities
     assert_eval("(list (eqv? '() '()) (eqv? '(a) '(a)) (eqv? '(()) '(())))", "(#t #f #f)");

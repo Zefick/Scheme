@@ -1,3 +1,4 @@
+use crate::errors::EvalErr;
 use crate::functions::*;
 use crate::logic::*;
 use crate::object::*;
@@ -6,24 +7,20 @@ use crate::service::*;
 
 use std::rc::Rc;
 
-pub fn eval_args(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
+pub fn eval_args(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
     Ok(Rc::new(match args {
         Object::Pair(a, b) => Object::Pair(eval(&Rc::clone(a), scope)?, eval_args(b, scope)?),
         _ => Object::Nil,
     }))
 }
 
-fn quote(args: &Object) -> Result<Rc<Object>, String> {
-    expect_1_arg(args, "quote")
-        .or_else(|_| Err(format!("malformed quote: need 1 argument, got {}", args).to_string()))
-}
-
-fn fn_let(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
+fn fn_let(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
     let let_args = list_to_vec(args)?;
     if let_args.len() < 2 {
-        return Err(format!(
-            "'let' need at least 2 arguments, {} found",
-            let_args.len()
+        return Err(EvalErr::NeedAtLeastArgs(
+            "let".to_string(),
+            2,
+            let_args.len(),
         ));
     }
     let args = list_to_vec(let_args.get(0).unwrap())?;
@@ -35,10 +32,10 @@ fn fn_let(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
                 if let Object::Symbol(s) = var {
                     eval(&vec.get(1).unwrap(), scope).map(|obj| bindings.push((s.clone(), obj)))
                 } else {
-                    Err(format!("let: need a symbol for binding name, got '{}'", var).to_string())
+                    Err(EvalErr::LetNeedSymbolForBinding(var.to_string()))
                 }
             } else {
-                Err(format!("let: need a list length 2 for bindings, got '{}'", arg).to_string())
+                Err(EvalErr::LetNeedListForBinding(arg.to_string()))
             }
         })?;
     }
@@ -51,7 +48,7 @@ fn fn_let(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
 pub fn fn_begin_vec(
     args: impl Iterator<Item = Rc<Object>>,
     scope: &Rc<Scope>,
-) -> Result<Rc<Object>, String> {
+) -> Result<Rc<Object>, EvalErr> {
     let mut result = undef();
     for arg in args {
         result = eval(&arg, scope)?;
@@ -59,7 +56,7 @@ pub fn fn_begin_vec(
     Ok(result)
 }
 
-pub fn fn_begin(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
+pub fn fn_begin(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
     fn_begin_vec(list_to_vec(args)?.into_iter(), scope)
 }
 
@@ -68,19 +65,19 @@ pub fn fn_begin(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> 
 /// `(define id expr)` and `(define (id args...) expr...)`
 ///
 /// Both syntax handled by this function. Defined value added to a current scope
-pub fn fn_define(args: &Object, scope: &Rc<Scope>) -> Result<(), String> {
+pub fn fn_define(args: &Object, scope: &Rc<Scope>) -> Result<(), EvalErr> {
     if let Object::Pair(head, expr) = args {
         match head.as_ref() {
             // (define x expr)
             Object::Symbol(s) => {
                 if let Object::Pair(value, tail) = expr.as_ref() {
                     if !tail.as_ref().is_nil() {
-                        Err("extra argument for 'define'".to_string())
+                        Err(EvalErr::TooManyArguments("define".to_string()))
                     } else {
                         eval(value, scope).map(|obj| scope.bind(s, obj))
                     }
                 } else {
-                    Err(format!("proper list required for 'define': {}", args).to_string())
+                    Err(EvalErr::ExpectedSymbolForArgument(args.to_string()))
                 }
             }
             // (define (name args) body)
@@ -89,26 +86,23 @@ pub fn fn_define(args: &Object, scope: &Rc<Scope>) -> Result<(), String> {
                     scope.bind(s, Rc::new(Function::new(s, args, expr, scope)?));
                     Ok(())
                 } else {
-                    Err(format!("expected symbol as a function name, found '{}'", name).to_string())
+                    Err(EvalErr::ExpectedSymbolForFunctionName(name.to_string()))
                 }
             }
-            x => Err(format!("proper list or symbol need for 'define', found: {}", x).to_string()),
+            x => Err(EvalErr::WrongDefineArgument(x.to_string())),
         }
     } else {
-        Err(format!(
-            "a list expected for 'define' arguments, found {}",
-            args
-        ))
+        Err(EvalErr::WrongArgsList(args.to_string()))
     }
 }
 
-fn lambda(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
+fn lambda(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
     check_pair(args)
         .and_then(|(args, body)| Function::new(&"#<lambda>".to_string(), args, body, scope))
         .map(Rc::new)
 }
 
-pub fn eval(obj: &Rc<Object>, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
+pub fn eval(obj: &Rc<Object>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
     match obj.as_ref() {
         // resolve a symbol
         Object::Symbol(s) => {
@@ -118,14 +112,14 @@ pub fn eval(obj: &Rc<Object>, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
             {
                 Ok(Rc::new(Object::Function(Function::Dynamic(s.clone()))))
             } else {
-                (scope.get(s)).ok_or_else(|| format!("unbound variable '{}'", s).to_string())
+                (scope.get(s)).ok_or_else(|| EvalErr::UnboundVariable(s.to_string()))
             }
         }
         // invoke a function
         Object::Pair(func, args) => {
             if let Object::Symbol(s) = func.as_ref() {
                 if s == "quote" {
-                    return quote(args);
+                    return expect_1_arg(args, "quote");
                 } else if s == "if" {
                     return fn_if(args, scope);
                 } else if s == "let" {
@@ -147,7 +141,7 @@ pub fn eval(obj: &Rc<Object>, scope: &Rc<Scope>) -> Result<Rc<Object>, String> {
             if let Object::Function(f) = eval(func, scope)?.as_ref() {
                 f.call(eval_args(args, scope)?)
             } else {
-                Err(format!("Illegal object used as a function: {}", func))
+                Err(EvalErr::IllegalObjectAsAFunction(func.to_string()))
             }
         }
         // other values evaluates to itself
