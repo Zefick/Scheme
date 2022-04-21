@@ -7,15 +7,15 @@ use crate::service::*;
 
 use std::rc::Rc;
 
-pub fn eval_args(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
-    Ok(Rc::new(match args {
-        Object::Pair(a, b) => Object::Pair(eval(&Rc::clone(a), scope)?, eval_args(b, scope)?),
-        _ => Object::Nil,
-    }))
+pub fn eval_args(args: &Object, scope: &Rc<Scope>) -> Result<Vec<Rc<Object>>, EvalErr> {
+    let mut result = Vec::new();
+    for arg in list_to_vec(args)? {
+        result.push(eval(&arg, scope)?);
+    }
+    Ok(result)
 }
 
-fn fn_let(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
-    let let_args = list_to_vec(args)?;
+fn fn_let(let_args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
     if let_args.len() < 2 {
         return Err(EvalErr::NeedAtLeastArgs(
             "let".to_string(),
@@ -56,8 +56,8 @@ pub fn fn_begin_vec(
     Ok(result)
 }
 
-pub fn fn_begin(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
-    fn_begin_vec(list_to_vec(args)?.into_iter(), scope)
+pub fn fn_begin(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
+    fn_begin_vec(args.into_iter(), scope)
 }
 
 /// There are two forms of define:
@@ -117,31 +117,44 @@ pub fn eval(obj: &Rc<Object>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> 
         }
         // invoke a function
         Object::Pair(func, args) => {
-            if let Object::Symbol(s) = func.as_ref() {
-                if s == "quote" {
-                    return expect_1_arg(args, "quote");
-                } else if s == "if" {
-                    return fn_if(args, scope);
-                } else if s == "let" {
-                    return fn_let(args, scope);
-                } else if s == "begin" {
-                    return fn_begin(args, &Scope::new(&[], Some(scope)));
-                } else if s == "define" {
-                    return fn_define(args, scope).map(|_| Rc::new(Object::Nil));
-                } else if s == "lambda" {
-                    return lambda(args, scope);
-                } else if s == "and" {
-                    return logic_and(args, scope);
-                } else if s == "or" {
-                    return logic_or(args, scope);
-                } else if s == "cond" {
-                    return cond(args, scope);
+            if let Result::Ok(args_vec) = list_to_vec(args) {
+                // special forms
+                if let Object::Symbol(s) = func.as_ref() {
+                    if s == "quote" {
+                        return if args_vec.len() != 1 {
+                            Err(EvalErr::WrongAgrsNum(
+                                "quote".to_string(),
+                                1,
+                                args_vec.len(),
+                            ))
+                        } else {
+                            Ok(args_vec[0].clone())
+                        };
+                    } else if s == "if" {
+                        return fn_if(args_vec, scope);
+                    } else if s == "let" {
+                        return fn_let(args_vec, scope);
+                    } else if s == "begin" {
+                        return fn_begin(args_vec, &Scope::new(&[], Some(scope)));
+                    } else if s == "define" {
+                        return fn_define(args, scope).map(|_| Rc::new(Object::Nil));
+                    } else if s == "lambda" {
+                        return lambda(args, scope);
+                    } else if s == "and" {
+                        return logic_and(args_vec, scope);
+                    } else if s == "or" {
+                        return logic_or(args_vec, scope);
+                    } else if s == "cond" {
+                        return cond(args_vec, scope);
+                    }
                 }
-            }
-            if let Object::Function(f) = eval(func, scope)?.as_ref() {
-                f.call(eval_args(args, scope)?)
+                if let Object::Function(f) = eval(func, scope)?.as_ref() {
+                    f.call(eval_args(args, scope)?)
+                } else {
+                    Err(EvalErr::IllegalObjectAsAFunction(func.to_string()))
+                }
             } else {
-                Err(EvalErr::IllegalObjectAsAFunction(func.to_string()))
+                Err(EvalErr::ListRequired(args.to_string()))
             }
         }
         // other values evaluates to itself

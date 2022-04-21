@@ -11,17 +11,15 @@ fn make_boolean(b: bool) -> Rc<Object> {
     Rc::new(Object::Boolean(b))
 }
 
-pub fn fn_if(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
-    let vec = expect_args(args, "if", 3)?;
-    let mut vec = vec.into_iter();
+pub fn fn_if(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
+    let mut vec = expect_args(args, "if", 3)?.into_iter();
     if !eval(&vec.next().unwrap(), scope)?.is_true() {
         vec.next();
     }
     eval(&vec.next().unwrap(), scope)
 }
 
-pub fn cond(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
-    let cond_list = list_to_vec(args)?;
+pub fn cond(cond_list: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
     if cond_list.is_empty() {
         return Err(EvalErr::CondNeedsClause());
     }
@@ -50,8 +48,8 @@ pub fn cond(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
     Ok(undef())
 }
 
-pub fn is_boolean(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
-    expect_1_arg(&args, "boolean?").map(|arg| {
+pub fn is_boolean(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
+    expect_1_arg(args, "boolean?").map(|arg| {
         make_boolean(match arg.as_ref() {
             Object::Boolean(_) => true,
             _ => false,
@@ -59,14 +57,13 @@ pub fn is_boolean(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     })
 }
 
-pub fn logic_not(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
-    Ok(make_boolean(!expect_1_arg(&args, "not")?.is_true()))
+pub fn logic_not(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
+    Ok(make_boolean(!expect_1_arg(args, "not")?.is_true()))
 }
 
-pub fn logic_and(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
-    let vec = list_to_vec(&args)?;
+pub fn logic_and(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
     let mut result = make_boolean(true);
-    for obj in vec {
+    for obj in args {
         let x = eval(&obj, scope)?;
         if x.is_true() {
             result = x;
@@ -77,8 +74,8 @@ pub fn logic_and(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr
     return Ok(result);
 }
 
-pub fn logic_or(args: &Object, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
-    for obj in list_to_vec(args)? {
+pub fn logic_or(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
+    for obj in args {
         let x = eval(&obj, scope)?;
         if x.is_true() {
             return Ok(x);
@@ -99,15 +96,15 @@ fn object_equal(obj1: &Rc<Object>, obj2: &Rc<Object>) -> bool {
 
 /// The softest of equality functions.
 /// Recursively compares the contents of pairs, applying `eqv?` on other objects
-pub fn fn_equal(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
-    let (obj1, obj2) = expect_2_args(args.as_ref(), "equal?")?;
+pub fn fn_equal(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
+    let (obj1, obj2) = expect_2_args(args, "equal?")?;
     Ok(make_boolean(object_equal(&obj1, &obj2)))
 }
 
 /// Consider pairs are the same even if it's the same objects
 /// So two distinct lists with the same content still different for `eqv?`
-pub fn fn_eqv(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
-    let (obj1, obj2) = expect_2_args(args.as_ref(), "eqv?")?;
+pub fn fn_eqv(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
+    let (obj1, obj2) = expect_2_args(args, "eqv?")?;
     let result = match (obj1.as_ref(), obj2.as_ref()) {
         (Object::Pair(..), Object::Pair(..)) => std::ptr::eq(obj1.as_ref(), obj2.as_ref()),
         _ => object_equal(&obj1, &obj2),
@@ -118,11 +115,11 @@ pub fn fn_eqv(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
 /// The difference between `eq?` and `eqv?` is that `eq?` taking into account the type of numbers
 /// and returns `false` if they are not match
 /// even if the numbers are the same for `eqv?` (e.g. 1 and 1.0)
-pub fn fn_eq(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
-    let (obj1, obj2) = expect_2_args(args.as_ref(), "eq?")?;
+pub fn fn_eq(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
+    let (obj1, obj2) = expect_2_args(args, "eq?")?;
     let result = match (obj1.as_ref(), obj2.as_ref()) {
         (Object::Number(n1), Object::Number(n2)) => n1 == n2,
-        _ => return fn_eqv(args),
+        _ => object_equal(&obj1, &obj2),
     };
     return Ok(make_boolean(result));
 }

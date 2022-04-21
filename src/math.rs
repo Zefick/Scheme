@@ -15,23 +15,23 @@ fn normalize(x: Number) -> Number {
     x.clone()
 }
 
-pub fn is_number(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
-    let arg = expect_1_arg(&args, "number?")?;
+pub fn is_number(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
+    let arg = expect_1_arg(args, "number?")?;
     Ok(Rc::new(Object::Boolean(match arg.as_ref() {
         Object::Number(_) => true,
         _ => false,
     })))
 }
 
-pub fn is_integer(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
-    let arg = expect_1_arg(&args, "integer?")?;
+pub fn is_integer(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
+    let arg = expect_1_arg(args, "integer?")?;
     Ok(Rc::new(Object::Boolean(match arg.as_ref() {
         Object::Number(Number::Integer(_)) => true,
         _ => false,
     })))
 }
 
-pub fn is_real(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
+pub fn is_real(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     is_number(args)
 }
 
@@ -50,11 +50,10 @@ fn check_nums<'a, 'b>(x: &'a Object, y: &'b Object) -> Result<(&'a Number, &'b N
 }
 
 fn num_predicate(
-    args: Rc<Object>,
+    vec: Vec<Rc<Object>>,
     name: &'static str,
     f: fn(&Number, &Number) -> bool,
 ) -> Result<Rc<Object>, EvalErr> {
-    let vec = list_to_vec(&args)?;
     if vec.len() < 2 {
         Err(EvalErr::NeedAtLeastArgs(name.to_string(), 2, vec.len()))
     } else {
@@ -79,27 +78,27 @@ pub fn num_equal(n1: &Number, n2: &Number) -> bool {
     }
 }
 
-pub fn num_eqv(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
+pub fn num_eqv(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     num_predicate(args, "=", num_equal)
 }
 
-pub fn num_less(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
+pub fn num_less(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     num_predicate(args, "<", |x, y| match (x, y) {
         (Integer(a), Integer(b)) => a < b,
         (a, b) => get_float(a) < get_float(b),
     })
 }
 
-pub fn num_greater(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
+pub fn num_greater(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     num_predicate(args, ">", |x, y| match (x, y) {
         (Integer(a), Integer(b)) => a > b,
         (a, b) => get_float(a) > get_float(b),
     })
 }
 
-pub fn num_plus(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
+pub fn num_plus(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     let mut acc = Number::Integer(0);
-    for n in list_to_vec(&args)? {
+    for n in args {
         if let Object::Number(n) = n.as_ref() {
             acc = match (acc, n) {
                 (Number::Integer(a), Number::Integer(b)) => Number::Integer(a + *b),
@@ -112,9 +111,9 @@ pub fn num_plus(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     Ok(Rc::new(Object::Number(acc)))
 }
 
-pub fn num_mul(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
+pub fn num_mul(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     let mut acc = Number::Integer(1);
-    for n in list_to_vec(&args)? {
+    for n in args {
         if let Object::Number(n) = n.as_ref() {
             acc = match (acc, n) {
                 (Number::Integer(a), Number::Integer(b)) => Number::Integer(a * *b),
@@ -127,8 +126,7 @@ pub fn num_mul(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     Ok(Rc::new(Object::Number(acc)))
 }
 
-pub fn num_minus(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
-    let vec = list_to_vec(&args)?;
+pub fn num_minus(vec: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     let mut result = Number::Integer(0);
     for n in 0..vec.len() {
         if let Object::Number(x) = vec.get(n).unwrap().as_ref() {
@@ -147,8 +145,7 @@ pub fn num_minus(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
     Ok(Rc::new(Object::Number(result)))
 }
 
-pub fn num_div(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
-    let vec = list_to_vec(&args)?;
+pub fn num_div(vec: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     let mut result = Number::Integer(1);
     for n in 0..vec.len() {
         if let Object::Number(x) = vec.get(n).unwrap().as_ref() {

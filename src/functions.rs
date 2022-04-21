@@ -9,7 +9,7 @@ use std::rc::Rc;
 
 pub enum Function {
     Dynamic(String),
-    Pointer(fn(Rc<Object>) -> Result<Rc<Object>, EvalErr>),
+    Pointer(fn(Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr>),
     Object {
         name: String,
         args: Rc<Object>,
@@ -19,9 +19,9 @@ pub enum Function {
 }
 
 impl Function {
-    pub fn call(&self, args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
+    pub fn call(&self, args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
         match self {
-            Function::Dynamic(s) => crate::lists::cadr(s, &args),
+            Function::Dynamic(s) => crate::lists::cadr(s, args),
             Function::Pointer(f) => f(args),
             Function::Object {
                 name,
@@ -30,34 +30,36 @@ impl Function {
                 scope,
             } => {
                 let mut formals = formal_args;
-                let mut rest = &args;
                 let scope = &Scope::new(&[], Some(&Rc::clone(scope)));
+                let mut arg_num = 0;
                 loop {
-                    match (formals.as_ref(), rest.as_ref()) {
-                        (Object::Pair(a1, b1), Object::Pair(a2, b2)) => {
+                    match formals.as_ref() {
+                        Object::Pair(a1, b1) => {
+                            if args.len() <= arg_num {
+                                return Err(EvalErr::TooFewArguments(name.to_string()));
+                            }
                             if let Object::Symbol(s) = a1.as_ref() {
-                                scope.bind(s, Rc::clone(a2));
+                                scope.bind(s, args[arg_num].clone());
                                 formals = b1;
-                                rest = b2;
                             } else {
                                 panic!("unexpected branch");
                             }
                         }
-                        (Object::Symbol(s), _) => {
-                            scope.bind(s, Rc::clone(rest));
+                        Object::Symbol(s) => {
+                            scope.bind(s, Rc::new(vec_to_list(args[arg_num..].to_vec())));
                             break;
                         }
-                        (Object::Nil, Object::Nil) => {
+                        Object::Nil => {
+                            if args.len() > arg_num {
+                                return Err(EvalErr::TooManyArguments(name.to_string()));
+                            }
                             break;
                         }
-                        (_, Object::Nil) => return Err(EvalErr::TooFewArguments(name.to_string())),
-                        (Object::Nil, _) => {
-                            return Err(EvalErr::TooManyArguments(name.to_string()))
-                        }
-                        _ => return Err(EvalErr::WrongArgsList(args.to_string())),
+                        _ => return Err(EvalErr::WrongArgsList(vec_to_list(args).to_string())),
                     }
+                    arg_num += 1;
                 }
-                fn_begin(body, &Rc::clone(scope))
+                fn_begin(list_to_vec(body)?, &Rc::clone(scope))
             }
         }
     }
@@ -112,29 +114,27 @@ impl PartialEq<Self> for Function {
     }
 }
 
-pub fn fn_apply(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
-    let vec = list_to_vec(args.as_ref())?;
+pub fn fn_apply(vec: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     if vec.len() < 2 {
         return Err(EvalErr::NeedAtLeastArgs("apply".to_string(), 2, vec.len()));
     }
     let func = vec.get(0).unwrap();
     if let Object::Function(f) = func.as_ref() {
-        let mut args = Rc::clone(vec.get(vec.len() - 1).unwrap());
+        let args = Rc::clone(vec.get(vec.len() - 1).unwrap());
         if list_to_vec(&args).is_err() {
             return Err(EvalErr::ApplyNeedsProperList(args.to_string()));
         }
         // concatenate first arguments with a last one presented as a list
-        for i in (1..vec.len() - 1).rev() {
-            args = Rc::new(Object::Pair(Rc::clone(vec.get(i).unwrap()), args));
-        }
+        let last = list_to_vec(&args)?;
+        let mut args = vec[1..vec.len() - 1].to_vec();
+        args.extend(last);
         f.call(args)
     } else {
         Err(EvalErr::IllegalObjectAsAFunction(func.to_string()))
     }
 }
 
-pub fn fn_map(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
-    let vec = list_to_vec(args.as_ref())?;
+pub fn fn_map(vec: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     if vec.len() < 2 {
         return Err(EvalErr::NeedAtLeastArgs("map".to_string(), 2, vec.len()));
     }
@@ -156,7 +156,7 @@ pub fn fn_map(args: Rc<Object>) -> Result<Rc<Object>, EvalErr> {
         let mut result = Vec::new();
         for i in 0..len.unwrap() {
             let args = inputs.iter().map(|v| v.get(i).unwrap()).cloned().collect();
-            result.push(f.call(Rc::new(vec_to_list(args)))?);
+            result.push(f.call(args)?);
         }
         Ok(Rc::new(vec_to_list(result)))
     } else {

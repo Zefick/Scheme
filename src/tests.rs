@@ -14,7 +14,7 @@ fn assert_eval_with_scope(scope: &Rc<Scope>, expr: &str, expected: &str) {
     let obj = parse_expression(expr).unwrap().pop().unwrap();
     eval(&Rc::new(obj), &scope)
         .map(|obj| assert_eq!(format!("{}", obj), expected))
-        .unwrap_or_else(|err| panic!(err));
+        .unwrap_or_else(|err| panic!("{}", err));
 }
 
 fn expect_err(expr: &str, expected: EvalErr) {
@@ -22,16 +22,16 @@ fn expect_err(expr: &str, expected: EvalErr) {
     let obj = parse_expression(expr).unwrap().pop().unwrap();
     let result = eval(&Rc::new(obj), &scope);
     match result {
-        Ok(_) => panic!(format!(
+        Ok(_) => panic!(
             "expression {} expected to evaluate with the error\n\"{}\"",
             expr, expected
-        )),
+        ),
         Err(err) => {
             if err != expected {
-                panic!(format!(
+                panic!(
                     "expression \"{}\" expected to evaluate with the error\n\"{}\" but the actual error is \n\"{}\"",
                     expr, expected, err
-                ));
+                );
             }
         }
     }
@@ -61,6 +61,7 @@ fn eval_test() {
     assert_eval("(cons 1 2)", "(1 . 2)");
     assert_eval("(cons 1 '(2 3))", "(1 2 3)");
     assert_eval("(list 1 2 3)", "(1 2 3)");
+    expect_err("(car 5)", EvalErr::PairRequired("5".to_string()));
 
     // let, define
     assert_eval("(let ((x 2)) x)", "2");
@@ -70,6 +71,8 @@ fn eval_test() {
     assert_eval("(begin (define (x)) x)", "<function>");
     assert_eval("(begin (define (x a) (car a)) (x '(5 6)))", "5");
     assert_eval("(begin (define (tail a . b) b) (tail 1 2 3))", "(2 3)");
+    expect_err("(define 5)", EvalErr::WrongDefineArgument("5".to_string()));
+    expect_err("(define (5))", EvalErr::ExpectedSymbolForFunctionName("5".to_string()));
 
     // lambda functions
     assert_eval("((lambda x x) 1 2 3)", "(1 2 3)");
@@ -79,10 +82,9 @@ fn eval_test() {
     expect_err("(lambda (x x) x)", EvalErr::ArgumentDuplication("x".to_string()));
     expect_err("((lambda (a b) a) 1)", EvalErr::TooFewArguments("#<lambda>".to_string()));
     expect_err("((lambda (a b) a) 1 2 3)", EvalErr::TooManyArguments("#<lambda>".to_string()));
+    expect_err("(5)", EvalErr::IllegalObjectAsAFunction("5".to_string()));
 
     // logic functions
-    assert_eval("(if #t 1 2)", "1");
-    assert_eval("(if #f 1 2)", "2");
     assert_eval("(or 5 foo #f)", "5");
     expect_err("(or #f foo)", EvalErr::UnboundVariable("foo".to_string()));
     assert_eval("(and 5 'foo 42)", "42");
@@ -91,12 +93,18 @@ fn eval_test() {
     assert_eval("(list (pair? '(1 2)) (pair? 5))", "(#t #f)");
     assert_eval("(list (list? '(1 2)) (list? 5) (list? '(1 . 2)))", "(#t #f #f)");
     assert_eval("(list (not #f) (not 5))", "(#t #f)");
+
+    // if, cond
+    assert_eval("(if #t 1 2)", "1");
+    assert_eval("(if #f 1 2)", "2");
     assert_eval("(cond (#f 42) ('foo))", "foo");
     assert_eval("(cond (#f 42) (5 'foo))", "foo");
     assert_eval("(cond (#f 42))", "#<undef>");
     assert_eval("(cond (#f 42) (else))", "#<undef>");
     assert_eval("(cond (#f 42) (else 1 2))", "2");
     assert_eval("(cond (#f 42) (#t 1 2))", "2");
+    expect_err("(cond)", EvalErr::CondNeedsClause());
+    expect_err("(cond ())", EvalErr::CondEmptyClause());
 
     // arithmetic functions
     assert_eval("(list (number? 1) (number? 'foo))", "(#t #f)");

@@ -75,7 +75,9 @@ impl Display for EvalErr {
             EvalErr::IllegalObjectAsAFunction(obj) => {
                 write!(f, "Illegal object used as a function: {}", obj)
             }
-            EvalErr::ListRequired(obj) => write!(f, "List required but got {}", obj),
+            EvalErr::ListRequired(obj) => {
+                write!(f, "Proper list required for function application: {}", obj)
+            }
             EvalErr::TooFewArguments(name) => write!(f, "Too few arguments given to {}", name),
             EvalErr::TooManyArguments(name) => write!(f, "Too many arguments given to {}", name),
             EvalErr::NumericArgsRequiredFor(name) => {
@@ -105,7 +107,7 @@ impl Display for EvalErr {
                 obj
             ),
             EvalErr::WrongDefineArgument(obj) => {
-                write!(f, "proper list or symbol need for 'define', got '{}'", obj)
+                write!(f, "Wrong first argument for 'define': {}", obj)
             }
             EvalErr::WrongArgsList(obj) => write!(f, "Wrong arguments list syntax: {}", obj),
             EvalErr::CondNeedsClause() => write!(f, "'cond' needs at least 1 clause"),

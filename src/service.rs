@@ -28,8 +28,7 @@ pub fn vec_to_list(vec: Vec<Rc<Object>>) -> Object {
 }
 
 /// Ensures that given object is a list with length `n`
-pub fn expect_args(args: &Object, func: &str, n: usize) -> Result<Vec<Rc<Object>>, EvalErr> {
-    let vec = list_to_vec(args)?;
+pub fn expect_args(vec: Vec<Rc<Object>>, func: &str, n: usize) -> Result<Vec<Rc<Object>>, EvalErr> {
     if vec.len() != n {
         Err(EvalErr::WrongAgrsNum(func.to_string(), n, vec.len()))
     } else {
@@ -38,14 +37,17 @@ pub fn expect_args(args: &Object, func: &str, n: usize) -> Result<Vec<Rc<Object>
 }
 
 /// Checks that taken object is a list with one element and returns the element or error
-pub fn expect_1_arg(args: &Object, func: &str) -> Result<Rc<Object>, EvalErr> {
-    expect_args(args, func, 1).map(|vec| Rc::clone(&vec[0]))
+pub fn expect_1_arg(vec: Vec<Rc<Object>>, func: &str) -> Result<Rc<Object>, EvalErr> {
+    expect_args(vec, func, 1).map(|vec| vec[0].clone())
 }
 
 /// Checks that taken object is a list of two elements
 /// and returns a tuple of this elements or error
-pub fn expect_2_args(args: &Object, func: &str) -> Result<(Rc<Object>, Rc<Object>), EvalErr> {
-    expect_args(args, func, 2).map(|vec| (Rc::clone(&vec[0]), Rc::clone(&vec[1])))
+pub fn expect_2_args(
+    vec: Vec<Rc<Object>>,
+    func: &str,
+) -> Result<(Rc<Object>, Rc<Object>), EvalErr> {
+    expect_args(vec, func, 2).map(|vec| (vec[0].clone(), vec[1].clone()))
 }
 
 /// Ensures that given object is a pair or returns an Err.

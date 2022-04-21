@@ -205,11 +205,11 @@ mod tests {
         let result = parse_expression(source);
         match result {
             Ok(_) => {
-                panic!(format!("Error \"{}\" expected for \"{}\"", expected, source))
+                panic!("Error \"{}\" expected for \"{}\"", expected, source)
             }
             Err(thrown) => {
                 if thrown != expected {
-                    panic!(format!("Error \"{}\" expected for \"{}\", \"{}\" thrown", expected, source, thrown))
+                    panic!("Error \"{}\" expected for \"{}\", \"{}\" thrown", expected, source, thrown)
                 }
             }
         }

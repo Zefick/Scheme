@@ -39,8 +39,8 @@ fn read_input() -> impl Iterator<Item = Result<Object, ParseErr>> {
             Ok(vec) => Box::new(vec.into_iter().map(Ok)),
             Err(e) => Box::new(std::iter::once(Err(e))),
         }
-    };
-    std::iter::from_fn(move || Some(next())).flatten()
+    }
+    std::iter::from_fn(|| Some(next())).flatten()
 }
 
 fn main() {
