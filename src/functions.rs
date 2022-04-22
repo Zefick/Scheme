@@ -13,7 +13,7 @@ pub enum Function {
     Object {
         name: String,
         args: Rc<Object>,
-        body: Rc<Object>,
+        body: Vec<Rc<Object>>,
         scope: Rc<Scope>,
     },
 }
@@ -59,7 +59,7 @@ impl Function {
                     }
                     arg_num += 1;
                 }
-                fn_begin(list_to_vec(body)?, &Rc::clone(scope))
+                fn_begin(body.iter(), &Rc::clone(scope))
             }
         }
     }
@@ -89,17 +89,17 @@ impl Function {
     }
 
     pub fn new(
-        name: &String,
-        args: &Rc<Object>,
-        body: &Rc<Object>,
-        scope: &Rc<Scope>,
+        name: String,
+        args: Rc<Object>,
+        body: Vec<Rc<Object>>,
+        scope: Rc<Scope>,
     ) -> Result<Object, EvalErr> {
-        Function::check_args(args)?;
+        Function::check_args(&args)?;
         Ok(Object::Function(Function::Object {
-            name: name.clone(),
-            args: Rc::clone(args),
-            body: Rc::clone(body),
-            scope: Rc::clone(scope),
+            name,
+            args,
+            body,
+            scope,
         }))
     }
 }

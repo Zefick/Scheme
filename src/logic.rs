@@ -42,7 +42,7 @@ pub fn cond(cond_list: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>,
             }
         }
         if is_true {
-            return fn_begin_vec(vec.into_iter().skip(1), scope);
+            return fn_begin(vec[1..].iter(), scope);
         }
     }
     Ok(undef())
