@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 
 #[allow(non_camel_case_types)]
@@ -37,6 +38,10 @@ pub enum EvalErr {
     CondNeedsClause(),
     CondEmptyClause(),
 }
+
+impl Error for EvalErr {}
+
+impl Error for ParseErr {}
 
 impl Display for ParseErr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

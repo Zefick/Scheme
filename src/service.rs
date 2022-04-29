@@ -11,7 +11,7 @@ pub fn list_to_vec(obj: &Object) -> Result<Vec<Rc<Object>>, EvalErr> {
     let mut tail = obj;
     while let Object::Pair(a, b) = tail {
         result.push(Rc::clone(a));
-        tail = &b;
+        tail = b;
     }
     if !tail.is_nil() {
         return Err(EvalErr::ListRequired(obj.to_string()));

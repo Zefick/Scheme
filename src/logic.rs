@@ -4,6 +4,7 @@ use crate::math::num_equal;
 use crate::object::Object;
 use crate::scope::Scope;
 use crate::service::*;
+use std::ops::Deref;
 
 use std::rc::Rc;
 
@@ -12,11 +13,9 @@ fn make_boolean(b: bool) -> Rc<Object> {
 }
 
 pub fn fn_if(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
-    let mut vec = expect_args(args, "if", 3)?.into_iter();
-    if !eval(&vec.next().unwrap(), scope)?.is_true() {
-        vec.next();
-    }
-    eval(&vec.next().unwrap(), scope)
+    let vec = expect_args(args, "if", 3)?;
+    let cond = eval(&vec[0], scope)?.is_true();
+    eval(if cond { &vec[1] } else { &vec[2] }, scope)
 }
 
 pub fn cond(cond_list: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
@@ -28,15 +27,15 @@ pub fn cond(cond_list: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>,
         if vec.is_empty() {
             return Err(EvalErr::CondEmptyClause());
         }
-        let predicate = vec.get(0).unwrap();
+        let predicate = &vec[0];
         let mut is_true = false;
-        if Object::Symbol("else".to_string()) == *predicate.as_ref() {
+        if &Object::Symbol("else".to_string()) == predicate.deref() {
             is_true = true;
         } else {
             let x = eval(predicate, scope)?;
             if x.is_true() {
                 if vec.len() == 1 {
-                    return Ok(Rc::clone(&x));
+                    return Ok(x);
                 }
                 is_true = true;
             }
@@ -64,11 +63,9 @@ pub fn logic_not(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
 pub fn logic_and(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
     let mut result = make_boolean(true);
     for obj in args {
-        let x = eval(&obj, scope)?;
-        if x.is_true() {
-            result = x;
-        } else {
-            return Ok(x);
+        result = eval(&obj, scope)?;
+        if !result.is_true() {
+            break;
         }
     }
     return Ok(result);

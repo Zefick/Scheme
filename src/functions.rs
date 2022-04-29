@@ -120,15 +120,16 @@ pub fn fn_apply(vec: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     }
     let func = vec.get(0).unwrap();
     if let Object::Function(f) = func.as_ref() {
-        let args = Rc::clone(vec.get(vec.len() - 1).unwrap());
-        if list_to_vec(&args).is_err() {
-            return Err(EvalErr::ApplyNeedsProperList(args.to_string()));
+        // concatenate first arguments with the last one presented as a list
+        // e.g. (1 2 3 '(4 5)) => (1 2 3 4 5)
+        let args = vec.get(vec.len() - 1).unwrap();
+        if let Ok(last) = list_to_vec(args) {
+            let mut args = vec[1..vec.len() - 1].to_vec();
+            args.extend(last);
+            f.call(args)
+        } else {
+            Err(EvalErr::ApplyNeedsProperList(args.to_string()))
         }
-        // concatenate first arguments with a last one presented as a list
-        let last = list_to_vec(&args)?;
-        let mut args = vec[1..vec.len() - 1].to_vec();
-        args.extend(last);
-        f.call(args)
     } else {
         Err(EvalErr::IllegalObjectAsAFunction(func.to_string()))
     }
