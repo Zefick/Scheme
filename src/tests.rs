@@ -2,9 +2,9 @@ use std::rc::Rc;
 
 use crate::errors::EvalErr;
 use crate::eval::*;
-use crate::eval_file;
 use crate::parser::parse_expression;
 use crate::scope::*;
+use crate::{eval_expr, eval_file};
 
 fn assert_eval(expr: &str, expected: &str) {
     assert_eval_with_scope(&get_global_scope(), expr, expected);
@@ -160,4 +160,32 @@ fn eval_test() {
     assert_eval_with_scope(scope, "(foldl cons '() '(1 2 3))", "(((() . 1) . 2) . 3)");
     assert_eval_with_scope(scope, "(append '(1 2) '(3 4))", "(1 2 3 4)");
     assert_eval_with_scope(scope, "(reverse '(1 2 3 4))", "(4 3 2 1)");
+}
+
+#[test]
+#[rustfmt::skip]
+/// Verifies that tail calls are working properly.
+/// That is, tail recursion does not lead to stack overflow.
+fn test_tail_call() {
+    let scope = &Scope::new(&[], Some(&get_global_scope()));
+    
+    // sum of 10000 consecutive integers
+    let seq_cum = "
+        (define (seq_sum n)
+          (define (seq_sum n acc)
+            (if (= 0 n)  acc (seq_sum (- n 1) (+ acc n))))
+          (seq_sum n 0))";
+    eval_expr(seq_cum.to_string(), &scope).unwrap();
+    assert_eval_with_scope(scope, "(seq_sum 10000)", "50005000");
+
+    // mutual recursion
+    let is_odd = "
+        (define (odd? n)
+            (if (= n 0) #f (even? (- n 1))))";
+    let is_even = "
+        (define (even? n)
+            (if (= n 0) #t (odd? (- n 1))))";
+    eval_expr(is_odd.to_string(), &scope).unwrap();
+    eval_expr(is_even.to_string(), &scope).unwrap();
+    assert_eval_with_scope(scope, "(map even? '(100500 99999))", "(#t #f)");
 }

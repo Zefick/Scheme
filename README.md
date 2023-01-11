@@ -62,7 +62,20 @@ Currently interpreter supports:
 (equal? '(1 2 3) '(1 2 3))                  => #t
 ```
 
-The features which still not implemented and maybe will not but need to be mentioned:
+* Recognition and optimization of tail calls.
+  * Calls in tail positions in such forms and functions as `let`, `begin`, `apply`, `if`, `and`, `or` and in user-defined functions
+optimized so that their repetitive recursive calls do not lead to stack growth.
+
+```
+(define (seq-sum n)
+  (define (seq_sum n acc)
+    (if (= 0 n)  acc (seq-sum (- n 1) (+ acc n))))
+  (seq-sum n 0))
+  
+(seq-sum 10000)                             => 50005000
+```
+
+##### The features which still not implemented and maybe will not but need to be mentioned:
 
 ###### Full Scheme math
 
@@ -78,9 +91,12 @@ Full realization of math from specs need a lot of effort by itself. This is not 
 Memory management leans on Rust's smart pointers. So if there is no cyclic structures then memory should free automatically.
 There is no fully functional GC.
 
-###### Tail calls optimization
+###### call-with-current-continuation
+I'll try to implement it as I figure out what it is and how useful it is.
 
-It is difficult to implement at the moment because I do not control stack usage as much as it is necessary for this feature.
+###### Quasi-quoting
+A feature that looks easy to implement, but not so useful for common tasks.
+Therefore, I prefer not to implement this, at least at the current stage.
 
 ###### Miscellaneous
 

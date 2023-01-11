@@ -28,10 +28,7 @@ impl Scope {
         for item in items {
             scope.insert(item.0.clone(), Rc::clone(&item.1));
         }
-        return Rc::new(Scope {
-            map: RefCell::new(scope),
-            parent: parent.map(Rc::clone),
-        });
+        return Rc::new(Scope { map: RefCell::new(scope), parent: parent.map(Rc::clone) });
     }
 }
 
@@ -45,7 +42,6 @@ pub fn get_global_scope() -> Rc<Scope> {
         ("cons".to_string(), Rc::new(Object::Function(Function::Pointer(cons)))),
         ("list".to_string(), Rc::new(Object::Function(Function::Pointer(list)))),
         ("length".to_string(), Rc::new(Object::Function(Function::Pointer(length)))),
-        ("apply".to_string(), Rc::new(Object::Function(Function::Pointer(fn_apply)))),
         ("map".to_string(), Rc::new(Object::Function(Function::Pointer(fn_map)))),
 
         ("boolean?".to_string(), Rc::new(Object::Function(Function::Pointer(is_boolean)))),

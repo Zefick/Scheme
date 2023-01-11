@@ -6,19 +6,21 @@ use crate::scope::Scope;
 use crate::service::*;
 use std::ops::Deref;
 
+use crate::functions::CallResult;
 use std::rc::Rc;
 
 fn make_boolean(b: bool) -> Rc<Object> {
     Rc::new(Object::Boolean(b))
 }
 
-pub fn fn_if(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
+pub fn fn_if(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<CallResult, EvalErr> {
     let vec = expect_args(args, "if", 3)?;
     let cond = eval(&vec[0], scope)?.is_true();
-    eval(if cond { &vec[1] } else { &vec[2] }, scope)
+    let result = if cond { &vec[1] } else { &vec[2] };
+    Ok(CallResult::TailCall(Rc::clone(result), Rc::clone(scope)))
 }
 
-pub fn cond(cond_list: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
+pub fn cond(cond_list: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<CallResult, EvalErr> {
     if cond_list.is_empty() {
         return Err(EvalErr::CondNeedsClause());
     }
@@ -35,16 +37,16 @@ pub fn cond(cond_list: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>,
             let x = eval(predicate, scope)?;
             if x.is_true() {
                 if vec.len() == 1 {
-                    return Ok(x);
+                    return Ok(CallResult::Object(x));
                 }
                 is_true = true;
             }
         }
         if is_true {
-            return fn_begin(vec[1..].iter(), scope);
+            return fn_begin(&vec[1..], scope);
         }
     }
-    Ok(undef())
+    Ok(CallResult::Object(undef()))
 }
 
 pub fn is_boolean(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
@@ -60,25 +62,34 @@ pub fn logic_not(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     Ok(make_boolean(!expect_1_arg(args, "not")?.is_true()))
 }
 
-pub fn logic_and(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
-    let mut result = make_boolean(true);
-    for obj in args {
-        result = eval(&obj, scope)?;
-        if !result.is_true() {
-            break;
+pub fn logic_and(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<CallResult, EvalErr> {
+    for i in 0..args.len() - 1 {
+        if !eval(&args[i], scope)?.is_true() {
+            return Ok(CallResult::Object(make_boolean(false)));
         }
     }
-    return Ok(result);
+    let result = if args.len() == 0 {
+        make_boolean(true)
+    } else {
+        args[args.len() - 1].clone()
+    };
+    // last expression in tail position
+    return Ok(CallResult::TailCall(result, scope.clone()));
 }
 
-pub fn logic_or(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
-    for obj in args {
-        let x = eval(&obj, scope)?;
-        if x.is_true() {
-            return Ok(x);
+pub fn logic_or(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<CallResult, EvalErr> {
+    for i in 0..args.len() - 1 {
+        let result = eval(&args[i], scope)?;
+        if result.is_true() {
+            return Ok(CallResult::Object(result));
         }
     }
-    return Ok(make_boolean(false));
+    let result = if args.len() == 0 {
+        make_boolean(false)
+    } else {
+        args[args.len() - 1].clone()
+    };
+    return Ok(CallResult::TailCall(result, scope.clone()));
 }
 
 fn object_equal(obj1: &Rc<Object>, obj2: &Rc<Object>) -> bool {
