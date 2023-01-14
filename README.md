@@ -9,7 +9,7 @@ Currently interpreter supports:
 
 * Data types: symbols, strings, numbers, dotted pairs. Boolean values presented as symbols `#t` and `#f`.
 
-* Base special forms and functions: `let`, `define`, `if`, `cond`, `quote`, `begin`.
+* Base special forms and functions: `define`, `if`, `cond`, `quote`, `begin`.
 ```
 ''(42)                                      => (quote 42)
 (begin 1 2 (+ 1 2)))                        => 3
@@ -17,6 +17,24 @@ Currently interpreter supports:
 (let ((y 6)) (* x y))                       => 30
 (if (> 1 2) (not-evaluated) #t)             => #t
 ```
+
+* Local bindings with `let` including such forms as `let*` and `letrec`
+```
+(let ((x 11)) (let ((x 22) (y x)) y))       => 11
+(let ((x 11)) (let* ((x 22) (y x)) y))      => 22
+
+(letrec
+  ((fib (lambda (n) (if (< n 2)
+        1
+        (+ (fib (- n 1))
+           (fib (- n 2))))))
+   (x (fib 10)))
+  x)                                        => 89
+```
+> **Note**:<br>
+My `letrec` actually works as the `letrec*` from Scheme.<br>
+The Racket abandoned `letrec*` and redefined its `letrec` to make it work as old `letrec*`.
+I made the same in order not to implement two separate form.
 
 * Functions as first class citizens, lexical scoping, lambdas and related functions: `apply`, `map`.
 ```

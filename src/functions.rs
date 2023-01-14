@@ -95,6 +95,9 @@ impl Function {
         name: String, args: Rc<Object>, body: Vec<Rc<Object>>, scope: Rc<Scope>,
     ) -> Result<Object, EvalErr> {
         Function::check_args(&args)?;
+        if body.is_empty() {
+            return Err(EvalErr::EmptyFunctionBody());
+        }
         let func = Function::Object { name, args, body, scope };
         Ok(Object::Function(func))
     }

@@ -57,6 +57,7 @@ fn eval_test() {
     assert_eval("(cadar '((1 2) 3))", "2");
     assert_eval("(cddr '(1 2 3))", "(3)");
     assert_eval("(caaaar '((((1 2 3))) 4))", "1");
+    expect_err ("(caaaaar '())", EvalErr::UnboundVariable("caaaaar".to_string()));
     assert_eval("(length '(1 2 3))", "3");
     assert_eval("(cons 1 2)", "(1 . 2)");
     assert_eval("(cons 1 '(2 3))", "(1 2 3)");
@@ -64,15 +65,12 @@ fn eval_test() {
     expect_err("(car 5)", EvalErr::PairRequired("5".to_string()));
 
     // let, define
-    assert_eval("(let ((x 2)) x)", "2");
-    assert_eval("(let ((x car) (y '(1 2 3))) (x y))", "1");
-    assert_eval("(let ((x 1)) (let ((x 2) (y x)) y))", "1");
-    assert_eval("(begin (define x 5) (cons (begin (define x 2) x) x))", "(2 . 5)");
-    assert_eval("(begin (define (x)) x)", "<function>");
+    assert_eval("(begin (define x 5) (cons (begin (define x 2) x) x))", "(2 . 2)");
     assert_eval("(begin (define (x a) (car a)) (x '(5 6)))", "5");
     assert_eval("(begin (define (tail a . b) b) (tail 1 2 3))", "(2 3)");
     expect_err("(define 5)", EvalErr::WrongDefineArgument("5".to_string()));
     expect_err("(define (5))", EvalErr::ExpectedSymbolForFunctionName("5".to_string()));
+    expect_err("(define (f x))", EvalErr::EmptyFunctionBody());
 
     // lambda functions
     assert_eval("((lambda x x) 1 2 3)", "(1 2 3)");
@@ -122,12 +120,12 @@ fn eval_test() {
     expect_err("(+ 1 'foo)", EvalErr::NumericArgsRequiredFor("+".to_string()));
     expect_err("(/ 1 2 0)", EvalErr::DivisionByZero());
     
+    // apply & map
     assert_eval("(apply list '(1 2 3))", "(1 2 3)");
     assert_eval("(apply list 1 2 '(3 4))", "(1 2 3 4)");
     assert_eval("(let ((foo (lambda (x) (+ x 10)))) (apply foo '(0)))", "10");
     expect_err("(apply + 1 2 3)", EvalErr::ApplyNeedsProperList("3".to_string()));
     expect_err("(apply +)", EvalErr::NeedAtLeastArgs("apply".to_string(), 2, 1));
-
     assert_eval("(map list '(1 2 3))", "((1) (2) (3))");
     assert_eval("(map list '(1 2 3) '(4 5 6))", "((1 4) (2 5) (3 6))");
     expect_err("(map + '(1 2) '(4 5 6))", EvalErr::UnequalMapLists());
@@ -164,6 +162,31 @@ fn eval_test() {
 
 #[test]
 #[rustfmt::skip]
+fn test_let() {
+    assert_eval("(let ((x 2)) x)", "2");
+    assert_eval("(let ((x car) (y '(1 2 3))) (x y))", "1");
+    
+    assert_eval("(let ((x 11)) (let ((x 22) (y x)) y))", "11");
+    assert_eval("(let ((x 11)) (let* ((x 22) (y x)) y))", "22");
+    
+    expect_err("(let ((z 22) (y z)) y)", EvalErr::UnboundVariable("z".to_string()));
+    assert_eval("(let* ((z 22) (y z)) y)", "22");
+
+    let body = "((fun (lambda () fun))) (fun)";
+    expect_err(&format!("(let {})", body), EvalErr::UnboundVariable("fun".to_string()));
+    assert_eval(&format!("(letrec {})", body), "<function>");
+
+    assert_eval("
+        (letrec
+          ((fib (lambda (n) (if (< n 2) 1 (+ (fib1 n) (fib2 n)))))
+           (fib1 (lambda (n) (fib (- n 1))))
+           (fib2 (lambda (n) (fib (- n 2))))
+           (x (fib 10)))
+          x)", "89");
+}
+
+#[test]
+#[rustfmt::skip]
 /// Verifies that tail calls are working properly.
 /// That is, tail recursion does not lead to stack overflow.
 fn test_tail_call() {
@@ -171,12 +194,12 @@ fn test_tail_call() {
     
     // sum of 10000 consecutive integers
     let seq_cum = "
-        (define (seq_sum n)
-          (define (seq_sum n acc)
-            (if (= 0 n)  acc (seq_sum (- n 1) (+ acc n))))
-          (seq_sum n 0))";
+        (define (seq-sum n)
+          (define (seq-sum n acc)
+            (if (= 0 n)  acc (seq-sum (- n 1) (+ acc n))))
+          (seq-sum n 0))";
     eval_expr(seq_cum.to_string(), &scope).unwrap();
-    assert_eval_with_scope(scope, "(seq_sum 10000)", "50005000");
+    assert_eval_with_scope(scope, "(seq-sum 10000)", "50005000");
 
     // mutual recursion
     let is_odd = "

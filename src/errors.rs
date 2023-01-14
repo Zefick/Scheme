@@ -37,6 +37,7 @@ pub enum EvalErr {
     WrongDefineArgument(String),
     CondNeedsClause(),
     CondEmptyClause(),
+    EmptyFunctionBody(),
 }
 
 impl Error for EvalErr {}
@@ -117,6 +118,9 @@ impl Display for EvalErr {
             EvalErr::WrongArgsList(obj) => write!(f, "Wrong arguments list syntax: {}", obj),
             EvalErr::CondNeedsClause() => write!(f, "'cond' needs at least 1 clause"),
             EvalErr::CondEmptyClause() => write!(f, "Empty clause for 'cond'"),
+            EvalErr::EmptyFunctionBody() => {
+                write!(f, "Empty function body")
+            }
         }
     }
 }

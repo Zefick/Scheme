@@ -15,7 +15,9 @@ pub fn eval_args(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Vec<Rc<Obje
     Ok(result)
 }
 
-fn fn_let(let_args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<CallResult, EvalErr> {
+fn fn_let(
+    let_args: Vec<Rc<Object>>, scope: &Rc<Scope>, star: bool, rec: bool,
+) -> Result<CallResult, EvalErr> {
     if let_args.len() < 2 {
         return Err(EvalErr::NeedAtLeastArgs(
             "let".to_string(),
@@ -23,14 +25,24 @@ fn fn_let(let_args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<CallResult, Ev
             let_args.len(),
         ));
     }
+    let root_scope = Scope::new(&[], Some(scope));
+    let mut init_scope = root_scope.clone();
     let args = list_to_vec(let_args.get(0).unwrap())?;
-    let mut bindings = Vec::new();
+    let mut bindings: Vec<(String, Rc<Object>)> = vec![];
     for arg in args {
         let init_expr = list_to_vec(arg.as_ref())?;
         if init_expr.len() >= 2 {
             let var = init_expr.get(0).unwrap().as_ref();
             if let Object::Symbol(s) = var {
-                bindings.push((s.clone(), eval(&init_expr.get(1).unwrap(), scope)?));
+                let value = eval(&init_expr.get(1).unwrap(), &init_scope)?;
+                if star {
+                    init_scope = Scope::new(&[], Some(&init_scope));
+                    init_scope.bind(s, value.clone());
+                }
+                if rec {
+                    root_scope.bind(s, value.clone());
+                }
+                bindings.push((s.to_string(), value.clone()));
             } else {
                 return Err(EvalErr::LetNeedSymbolForBinding(var.to_string()));
             }
@@ -157,9 +169,13 @@ fn invoke(
         } else if s == "if" {
             return fn_if(args, &scope);
         } else if s == "let" {
-            return fn_let(args, &scope);
+            return fn_let(args, &scope, false, false);
+        } else if s == "let*" {
+            return fn_let(args, &scope, true, false);
+        } else if s == "letrec" {
+            return fn_let(args, &scope, false, true);
         } else if s == "begin" {
-            return fn_begin(args.as_slice(), &Scope::new(&[], Some(scope)));
+            return fn_begin(args.as_slice(), scope);
         } else if s == "define" {
             fn_define(args, scope)?;
             return Ok(CallResult::Object(Rc::new(Object::Nil)));
