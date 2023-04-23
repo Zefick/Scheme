@@ -1,0 +1,10 @@
+edition = "2021"
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+struct_lit_width = 60
+struct_variant_width = 60
+reorder_imports = true
+reorder_modules = true
+fn_args_layout = "Compressed"
+merge_derives = true

@@ -50,9 +50,7 @@ fn check_nums<'a, 'b>(x: &'a Object, y: &'b Object) -> Result<(&'a Number, &'b N
 }
 
 fn num_predicate(
-    vec: Vec<Rc<Object>>,
-    name: &'static str,
-    f: fn(&Number, &Number) -> bool,
+    vec: Vec<Rc<Object>>, name: &'static str, f: fn(&Number, &Number) -> bool,
 ) -> Result<Rc<Object>, EvalErr> {
     if vec.len() < 2 {
         Err(EvalErr::NeedAtLeastArgs(name.to_string(), 2, vec.len()))

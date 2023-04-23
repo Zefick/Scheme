@@ -129,7 +129,7 @@ pub fn eval(obj: &Rc<Object>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> 
                 {
                     Ok(Rc::new(Object::Function(Function::Dynamic(s.clone()))))
                 } else {
-                    scope.get(s).ok_or_else(|| EvalErr::UnboundVariable(s.to_string()))
+                    (scope.get(s)).ok_or_else(|| EvalErr::UnboundVariable(s.to_string()))
                 };
             }
             // invoke a function

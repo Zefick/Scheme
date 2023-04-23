@@ -44,8 +44,7 @@ pub fn expect_1_arg(vec: Vec<Rc<Object>>, func: &str) -> Result<Rc<Object>, Eval
 /// Checks that taken object is a list of two elements
 /// and returns a tuple of this elements or error
 pub fn expect_2_args(
-    vec: Vec<Rc<Object>>,
-    func: &str,
+    vec: Vec<Rc<Object>>, func: &str,
 ) -> Result<(Rc<Object>, Rc<Object>), EvalErr> {
     expect_args(vec, func, 2).map(|vec| (vec[0].clone(), vec[1].clone()))
 }

@@ -34,6 +34,7 @@ impl Object {
     }
 }
 
+#[rustfmt::skip]
 impl Debug for Object {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
@@ -50,6 +51,7 @@ impl Debug for Object {
 }
 
 /// Display provides prettier output of lists then Debug
+#[rustfmt::skip]
 impl Display for Object {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         if let Object::Pair(head, tail) = self {
@@ -93,5 +95,4 @@ mod tests {
         );
         assert_eq!(format!("{}", obj), "(1 2)");
     }
-
 }
