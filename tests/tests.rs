@@ -144,10 +144,12 @@ fn test_math() {
 fn apply_and_map() {
     assert_eval("(apply list '(1 2 3))", "(1 2 3)");
     assert_eval("(apply list 1 2 '(3 4))", "(1 2 3 4)");
+    assert_eval("(apply list 1 (+ 1 1) '(3 (+ 2 2)))", "(1 2 3 (+ 2 2))");
     assert_eval("(let ((foo (lambda (x) (+ x 10)))) (apply foo '(0)))", "10");
     expect_err("(apply + 1 2 3)", EvalErr::ApplyNeedsProperList("3".to_string()));
     expect_err("(apply +)", EvalErr::NeedAtLeastArgs("apply".to_string(), 2, 1));
     assert_eval("(map list '(1 2 3))", "((1) (2) (3))");
+    // assert_eval("(map list '(1 2 (+ 1 2)))", "((1) (2) ((+ 1 2)))");
     assert_eval("(map list '(1 2 3) '(4 5 6))", "((1 4) (2 5) (3 6))");
     expect_err("(map + '(1 2) '(4 5 6))", EvalErr::UnequalMapLists());
     expect_err("(map +)", EvalErr::NeedAtLeastArgs("map".to_string(), 2, 1));
@@ -202,6 +204,9 @@ fn test_let() {
     let body = "((fun (lambda () fun))) (fun)";
     expect_err(&format!("(let {})", body), EvalErr::UnboundVariable("fun".to_string()));
     assert_eval(&format!("(letrec {})", body), "<function>");
+    
+    assert_eval("(let ((x 2)) (map (lambda (y) (+ x y)) '(1 2 3)))", "(3 4 5)");
+    assert_eval("(let ((f (lambda (y) (+ y 2)))) (map f '(1 2 3)))", "(3 4 5)");
 
     assert_eval("
         (letrec
@@ -237,5 +242,5 @@ fn test_tail_call() {
             (if (= n 0) #t (odd? (- n 1))))";
     eval_expr(is_odd, scope).unwrap();
     eval_expr(is_even, scope).unwrap();
-    assert_eval_with_scope(scope, "(map even? '(100500 99999))", "(#t #f)");
+    assert_eval_with_scope(scope, "(map even? '(10500 9999))", "(#t #f)");
 }

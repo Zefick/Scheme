@@ -117,27 +117,23 @@ pub fn fn_apply(vec: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<CallResult, E
     if vec.len() < 2 {
         return Err(EvalErr::NeedAtLeastArgs("apply".to_string(), 2, vec.len()));
     }
-    let func = eval(vec.get(0).unwrap(), scope)?;
-    if let Object::Function(_) = func.as_ref() {
+    let first = eval(vec.get(0).unwrap(), scope)?;
+    if let Object::Function(fun) = first.as_ref() {
         // concatenate first arguments with the last one presented as a list
         // e.g. (1 2 3 '(4 5)) => (1 2 3 4 5)
         let args = eval(vec.last().unwrap(), scope)?;
         if let Ok(last) = list_to_vec(args.as_ref()) {
-            let mut args = vec[1..vec.len() - 1].to_vec();
-            args.extend(last);
-            let mut args2: Vec<Rc<Object>> = vec![];
-            for arg in args {
-                args2.push(eval(&arg, scope)?);
+            let mut args: Vec<Rc<Object>> = vec![];
+            for arg in vec[1..vec.len() - 1].iter() {
+                args.push(eval(arg, scope)?);
             }
-            Ok(CallResult::TailCall(
-                Rc::new(Pair(func, Rc::new(vec_to_list(args2)))),
-                scope.clone(),
-            ))
+            args.extend(last);
+            Ok(fun.call(args)?)
         } else {
             Err(EvalErr::ApplyNeedsProperList(args.to_string()))
         }
     } else {
-        Err(EvalErr::IllegalObjectAsAFunction(func.to_string()))
+        Err(EvalErr::IllegalObjectAsAFunction(first.to_string()))
     }
 }
 

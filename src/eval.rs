@@ -156,10 +156,10 @@ pub fn eval(obj: &Rc<Object>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> 
 }
 
 fn invoke(
-    func: &Rc<Object>, args: Vec<Rc<Object>>, scope: &Rc<Scope>,
+    obj: &Rc<Object>, args: Vec<Rc<Object>>, scope: &Rc<Scope>,
 ) -> Result<CallResult, EvalErr> {
     // special forms
-    if let Object::Symbol(s) = func.as_ref() {
+    if let Object::Symbol(s) = obj.as_ref() {
         if s == "quote" {
             return if args.len() != 1 {
                 Err(EvalErr::WrongAgrsNum("quote".to_string(), 1, args.len()))
@@ -191,9 +191,9 @@ fn invoke(
             return fn_apply(args, scope);
         }
     }
-    if let Object::Function(f) = eval(func, scope)?.as_ref() {
-        f.call(eval_args(args, scope)?)
+    if let Object::Function(fun) = eval(obj, scope)?.as_ref() {
+        fun.call(eval_args(args, scope)?)
     } else {
-        Err(EvalErr::IllegalObjectAsAFunction(func.to_string()))
+        Err(EvalErr::IllegalObjectAsAFunction(obj.to_string()))
     }
 }

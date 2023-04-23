@@ -18,7 +18,7 @@ use object::Object;
 use scope::Scope;
 
 pub fn eval_expr(expr: &str, scope: &Rc<Scope>) -> Result<Rc<Object>, Box<dyn Error>> {
-    let iter = parser::parse_expression(&expr)?.into_iter();
+    let iter = parser::parse_expression(expr)?.into_iter();
     let mut result = Rc::new(Object::Nil);
     for obj in iter {
         result = eval::eval(&Rc::new(obj), scope)?;
