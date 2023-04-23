@@ -17,7 +17,7 @@ use std::rc::Rc;
 use object::Object;
 use scope::Scope;
 
-pub fn eval_expr(expr: String, scope: &Rc<Scope>) -> Result<Rc<Object>, Box<dyn Error>> {
+pub fn eval_expr(expr: &str, scope: &Rc<Scope>) -> Result<Rc<Object>, Box<dyn Error>> {
     let iter = parser::parse_expression(&expr)?.into_iter();
     let mut result = Rc::new(Object::Nil);
     for obj in iter {
@@ -29,12 +29,12 @@ pub fn eval_expr(expr: String, scope: &Rc<Scope>) -> Result<Rc<Object>, Box<dyn 
 pub fn eval_file(file: &str, scope: &Rc<Scope>) -> Result<(), Box<dyn Error>> {
     let content = std::fs::read_to_string(file);
     let src = content.map_err(|_| format!("file '{}' cannot be opened", file))?;
-    eval_expr(src, scope)?;
+    eval_expr(&src, scope)?;
     Ok(())
 }
 
 pub fn repl() {
-    let scope = scope::get_global_scope();
+    let scope = Rc::new(Scope::from_global());
 
     if let Some(err) = eval_file("prelude.scm", &scope).err() {
         println!("Error in 'prelude.scm': {}", err)
@@ -42,7 +42,7 @@ pub fn repl() {
 
     // Read-Eval-Print Loop
     (std::io::stdin().lock().lines())
-        .map(|str| match eval_expr(str.unwrap(), &scope) {
+        .map(|str| match eval_expr(&str.unwrap(), &scope) {
             Ok(ok) => ok.to_string(),
             Err(err) => "Error: ".to_string() + &err.to_string(),
         })

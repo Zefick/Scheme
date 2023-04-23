@@ -1,6 +1,6 @@
 use crate::eval::*;
 use crate::object::Object;
-use crate::scope::{get_global_scope, Scope};
+use crate::scope::Scope;
 use crate::service::{list_to_vec, vec_to_list};
 
 use crate::errors::EvalErr;
@@ -33,7 +33,7 @@ impl Function {
 
             Function::Object { name, args: formal_args, body, scope } => {
                 let mut formals = formal_args;
-                let scope = &Scope::new(&[], Some(&Rc::clone(scope)));
+                let scope = Scope::from_scope(scope);
                 let mut arg_num = 0;
                 loop {
                     match formals.as_ref() {
@@ -62,7 +62,7 @@ impl Function {
                     }
                     arg_num += 1;
                 }
-                fn_begin(body, scope)
+                fn_begin(body, &Rc::new(scope))
             }
         }
     }
@@ -162,10 +162,10 @@ pub fn fn_map(vec: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
         // then call a mapped function
         let mut result = Vec::new();
         for i in 0..len.unwrap() {
-            let args = vec_to_list(inputs.iter().map(|v| v.get(i).unwrap()).cloned().collect());
+            let args = vec_to_list(inputs.iter().map(|v| v[i].clone()).collect());
             result.push(eval(
                 &Rc::new(Pair(func.clone(), Rc::new(args))),
-                &get_global_scope(),
+                &Rc::new(Scope::from_global()),
             )?);
         }
         Ok(Rc::new(vec_to_list(result)))

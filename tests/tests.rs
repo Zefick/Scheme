@@ -1,13 +1,13 @@
 use std::rc::Rc;
 
 use scheme::errors::EvalErr;
-use scheme::eval::*;
+use scheme::eval::eval;
 use scheme::parser::parse_expression;
-use scheme::scope::*;
+use scheme::scope::Scope;
 use scheme::{eval_expr, eval_file};
 
 fn assert_eval(expr: &str, expected: &str) {
-    assert_eval_with_scope(&get_global_scope(), expr, expected);
+    assert_eval_with_scope(&Rc::new(Scope::from_global()), expr, expected);
 }
 
 fn assert_eval_with_scope(scope: &Rc<Scope>, expr: &str, expected: &str) {
@@ -19,9 +19,9 @@ fn assert_eval_with_scope(scope: &Rc<Scope>, expr: &str, expected: &str) {
 }
 
 fn expect_err(expr: &str, expected: EvalErr) {
-    let scope = Scope::new(&[], Some(&get_global_scope()));
+    let scope = Scope::from_global();
     let obj = parse_expression(expr).unwrap().pop().unwrap();
-    let result = eval(&Rc::new(obj), &scope);
+    let result = eval(&Rc::new(obj), &Rc::new(scope));
     match result {
         Ok(_) => panic!(
             "expression {} expected to evaluate with the error\n\"{}\"",
@@ -179,7 +179,7 @@ fn equalities() {
 #[test]
 #[rustfmt::skip]
 fn prelude() {
-    let scope = &get_global_scope();
+    let scope = &Rc::new(Scope::from_global());
     assert!(eval_file("prelude.scm", scope).is_ok());
     assert_eval_with_scope(scope, "(foldr cons '() '(1 2 3))", "(1 2 3)");
     assert_eval_with_scope(scope, "(foldl cons '() '(1 2 3))", "(((() . 1) . 2) . 3)");
@@ -217,7 +217,7 @@ fn test_let() {
 /// Verifies that tail calls are working properly.
 /// That is, tail recursion does not lead to stack overflow.
 fn test_tail_call() {
-    let scope = &Scope::new(&[], Some(&get_global_scope()));
+    let scope = &Rc::new(Scope::from_global());
     
     // sum of 10000 consecutive integers
     let seq_cum = "
@@ -225,7 +225,7 @@ fn test_tail_call() {
           (define (seq-sum n acc)
             (if (= 0 n)  acc (seq-sum (- n 1) (+ acc n))))
           (seq-sum n 0))";
-    eval_expr(seq_cum.to_string(), &scope).unwrap();
+    eval_expr(seq_cum, scope).unwrap();
     assert_eval_with_scope(scope, "(seq-sum 10000)", "50005000");
 
     // mutual recursion
@@ -235,7 +235,7 @@ fn test_tail_call() {
     let is_even = "
         (define (even? n)
             (if (= n 0) #t (odd? (- n 1))))";
-    eval_expr(is_odd.to_string(), &scope).unwrap();
-    eval_expr(is_even.to_string(), &scope).unwrap();
+    eval_expr(is_odd, scope).unwrap();
+    eval_expr(is_even, scope).unwrap();
     assert_eval_with_scope(scope, "(map even? '(100500 99999))", "(#t #f)");
 }

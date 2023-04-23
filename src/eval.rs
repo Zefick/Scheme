@@ -25,10 +25,10 @@ fn fn_let(
             let_args.len(),
         ));
     }
-    let root_scope = Scope::new(&[], Some(scope));
+    let root_scope = Rc::new(Scope::from_scope(scope));
     let mut init_scope = root_scope.clone();
     let args = list_to_vec(let_args.get(0).unwrap())?;
-    let mut bindings: Vec<(String, Rc<Object>)> = vec![];
+    let mut bindings = vec![];
     for arg in args {
         let init_expr = list_to_vec(arg.as_ref())?;
         if init_expr.len() >= 2 {
@@ -36,7 +36,7 @@ fn fn_let(
             if let Object::Symbol(s) = var {
                 let value = eval(init_expr.get(1).unwrap(), &init_scope)?;
                 if star {
-                    init_scope = Scope::new(&[], Some(&init_scope));
+                    init_scope = Rc::new(Scope::from_scope(&init_scope));
                     init_scope.bind(s, value.clone());
                 }
                 if rec {
@@ -52,7 +52,7 @@ fn fn_let(
     }
     fn_begin(
         &let_args[1..],
-        &Scope::new(bindings.as_slice(), Some(scope)),
+        &Rc::new(Scope::new(bindings.as_slice(), scope)),
     )
 }
 
