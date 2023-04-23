@@ -121,7 +121,7 @@ pub fn fn_apply(vec: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<CallResult, E
     if let Object::Function(_) = func.as_ref() {
         // concatenate first arguments with the last one presented as a list
         // e.g. (1 2 3 '(4 5)) => (1 2 3 4 5)
-        let args = eval(vec.get(vec.len() - 1).unwrap(), scope)?;
+        let args = eval(vec.last().unwrap(), scope)?;
         if let Ok(last) = list_to_vec(args.as_ref()) {
             let mut args = vec[1..vec.len() - 1].to_vec();
             args.extend(last);
@@ -129,10 +129,10 @@ pub fn fn_apply(vec: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<CallResult, E
             for arg in args {
                 args2.push(eval(&arg, scope)?);
             }
-            return Ok(CallResult::TailCall(
+            Ok(CallResult::TailCall(
                 Rc::new(Pair(func, Rc::new(vec_to_list(args2)))),
                 scope.clone(),
-            ));
+            ))
         } else {
             Err(EvalErr::ApplyNeedsProperList(args.to_string()))
         }

@@ -50,12 +50,8 @@ pub fn cond(cond_list: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<CallResult,
 }
 
 pub fn is_boolean(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
-    expect_1_arg(args, "boolean?").map(|arg| {
-        make_boolean(match arg.as_ref() {
-            Object::Boolean(_) => true,
-            _ => false,
-        })
-    })
+    expect_1_arg(args, "boolean?")
+        .map(|arg| make_boolean(matches!(arg.as_ref(), Object::Boolean(_))))
 }
 
 pub fn logic_not(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
@@ -63,33 +59,33 @@ pub fn logic_not(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
 }
 
 pub fn logic_and(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<CallResult, EvalErr> {
-    for i in 0..args.len() - 1 {
-        if !eval(&args[i], scope)?.is_true() {
+    for item in args.iter() {
+        if !eval(item, scope)?.is_true() {
             return Ok(CallResult::Object(make_boolean(false)));
         }
     }
-    let result = if args.len() == 0 {
+    let result = if args.is_empty() {
         make_boolean(true)
     } else {
         args[args.len() - 1].clone()
     };
     // last expression in tail position
-    return Ok(CallResult::TailCall(result, scope.clone()));
+    Ok(CallResult::TailCall(result, scope.clone()))
 }
 
 pub fn logic_or(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<CallResult, EvalErr> {
-    for i in 0..args.len() - 1 {
-        let result = eval(&args[i], scope)?;
+    for item in args.iter() {
+        let result = eval(item, scope)?;
         if result.is_true() {
             return Ok(CallResult::Object(result));
         }
     }
-    let result = if args.len() == 0 {
+    let result = if args.is_empty() {
         make_boolean(false)
     } else {
-        args[args.len() - 1].clone()
+        args.last().unwrap().clone()
     };
-    return Ok(CallResult::TailCall(result, scope.clone()));
+    Ok(CallResult::TailCall(result, scope.clone()))
 }
 
 fn object_equal(obj1: &Rc<Object>, obj2: &Rc<Object>) -> bool {
@@ -117,7 +113,7 @@ pub fn fn_eqv(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
         (Object::Pair(..), Object::Pair(..)) => std::ptr::eq(obj1.as_ref(), obj2.as_ref()),
         _ => object_equal(&obj1, &obj2),
     };
-    return Ok(make_boolean(result));
+    Ok(make_boolean(result))
 }
 
 /// The difference between `eq?` and `eqv?` is that `eq?` taking into account the type of numbers
@@ -129,5 +125,5 @@ pub fn fn_eq(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
         (Object::Number(n1), Object::Number(n2)) => n1 == n2,
         _ => object_equal(&obj1, &obj2),
     };
-    return Ok(make_boolean(result));
+    Ok(make_boolean(result))
 }

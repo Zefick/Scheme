@@ -12,23 +12,23 @@ fn normalize(x: Number) -> Number {
             return Number::Integer(f as i32);
         }
     }
-    x.clone()
+    x
 }
 
 pub fn is_number(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     let arg = expect_1_arg(args, "number?")?;
-    Ok(Rc::new(Object::Boolean(match arg.as_ref() {
-        Object::Number(_) => true,
-        _ => false,
-    })))
+    Ok(Rc::new(Object::Boolean(matches!(
+        arg.as_ref(),
+        Object::Number(_)
+    ))))
 }
 
 pub fn is_integer(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     let arg = expect_1_arg(args, "integer?")?;
-    Ok(Rc::new(Object::Boolean(match arg.as_ref() {
-        Object::Number(Number::Integer(_)) => true,
-        _ => false,
-    })))
+    Ok(Rc::new(Object::Boolean(matches!(
+        arg.as_ref(),
+        Object::Number(Number::Integer(_))
+    ))))
 }
 
 pub fn is_real(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
@@ -36,10 +36,10 @@ pub fn is_real(args: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
 }
 
 fn get_float(num: &Number) -> f64 {
-    return match num {
+    match num {
         Integer(x) => *x as f64,
         Float(x) => *x,
-    };
+    }
 }
 
 fn check_nums<'a, 'b>(x: &'a Object, y: &'b Object) -> Result<(&'a Number, &'b Number), ()> {
@@ -129,7 +129,7 @@ pub fn num_minus(vec: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     for n in 0..vec.len() {
         if let Object::Number(x) = vec.get(n).unwrap().as_ref() {
             if n == 0 && vec.len() > 1 {
-                result = x.clone();
+                result = *x;
             } else {
                 result = match (result, x) {
                     (Number::Integer(a), Number::Integer(b)) => Number::Integer(a - *b),
@@ -148,7 +148,7 @@ pub fn num_div(vec: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     for n in 0..vec.len() {
         if let Object::Number(x) = vec.get(n).unwrap().as_ref() {
             if n == 0 && vec.len() > 1 {
-                result = x.clone();
+                result = *x;
             } else {
                 if match x {
                     Integer(0) => true,

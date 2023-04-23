@@ -20,15 +20,15 @@ impl Scope {
         (self.map.borrow().get(key).map(Rc::clone))
             .or_else(|| self.parent.as_ref().and_then(|p| p.get(key)))
     }
-    pub fn bind(&self, key: &String, value: Rc<Object>) {
-        self.map.borrow_mut().insert(key.clone(), value);
+    pub fn bind(&self, key: &str, value: Rc<Object>) {
+        self.map.borrow_mut().insert(key.to_string(), value);
     }
     pub fn new(items: &[(String, Rc<Object>)], parent: Option<&Rc<Scope>>) -> Rc<Scope> {
         let mut scope = HashMap::new();
         for item in items {
             scope.insert(item.0.clone(), Rc::clone(&item.1));
         }
-        return Rc::new(Scope { map: RefCell::new(scope), parent: parent.map(Rc::clone) });
+        Rc::new(Scope { map: RefCell::new(scope), parent: parent.map(Rc::clone) })
     }
 }
 
@@ -36,7 +36,7 @@ impl Scope {
 /// Contains core functions and constants like `#t` and `#f`
 #[rustfmt::skip]
 pub fn get_global_scope() -> Rc<Scope> {
-    return Scope::new(&[
+    Scope::new(&[
         ("#t".to_string(), Rc::new(Object::Boolean(true))),
         ("#f".to_string(), Rc::new(Object::Boolean(false))),
         ("cons".to_string(), Rc::new(Object::Function(Function::Pointer(cons)))),
@@ -63,5 +63,5 @@ pub fn get_global_scope() -> Rc<Scope> {
         ("-".to_string(), Rc::new(Object::Function(Function::Pointer(num_minus)))),
         ("*".to_string(), Rc::new(Object::Function(Function::Pointer(num_mul)))),
         ("/".to_string(), Rc::new(Object::Function(Function::Pointer(num_div)))),
-    ], None);
+    ], None)
 }

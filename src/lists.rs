@@ -11,7 +11,7 @@ pub fn cadr(name: &str, obj: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
         let pair = check_pair(&obj)?;
         obj = Rc::clone(if op == 'a' { pair.0 } else { pair.1 });
     }
-    return Ok(obj);
+    Ok(obj)
 }
 
 pub fn cons(obj: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {

@@ -18,17 +18,17 @@ use object::Object;
 use scope::Scope;
 
 pub fn eval_expr(expr: String, scope: &Rc<Scope>) -> Result<Rc<Object>, Box<dyn Error>> {
-    let mut iter = parser::parse_expression(&expr)?.into_iter();
+    let iter = parser::parse_expression(&expr)?.into_iter();
     let mut result = Rc::new(Object::Nil);
-    while let Some(obj) = iter.next() {
+    for obj in iter {
         result = eval::eval(&Rc::new(obj), scope)?;
     }
     Ok(result)
 }
 
 pub fn eval_file(file: &str, scope: &Rc<Scope>) -> Result<(), Box<dyn Error>> {
-    let src = std::fs::read_to_string(file)
-        .map_err(|_| format!("file '{}' cannot be opened", file).to_string())?;
+    let content = std::fs::read_to_string(file);
+    let src = content.map_err(|_| format!("file '{}' cannot be opened", file))?;
     eval_expr(src, scope)?;
     Ok(())
 }
@@ -36,9 +36,9 @@ pub fn eval_file(file: &str, scope: &Rc<Scope>) -> Result<(), Box<dyn Error>> {
 pub fn repl() {
     let scope = scope::get_global_scope();
 
-    eval_file("prelude.scm", &scope)
-        .err()
-        .map(|err| println!("Error in 'prelude.scm': {}", err));
+    if let Some(err) = eval_file("prelude.scm", &scope).err() {
+        println!("Error in 'prelude.scm': {}", err)
+    }
 
     // Read-Eval-Print Loop
     (std::io::stdin().lock().lines())

@@ -34,7 +34,7 @@ fn fn_let(
         if init_expr.len() >= 2 {
             let var = init_expr.get(0).unwrap().as_ref();
             if let Object::Symbol(s) = var {
-                let value = eval(&init_expr.get(1).unwrap(), &init_scope)?;
+                let value = eval(init_expr.get(1).unwrap(), &init_scope)?;
                 if star {
                     init_scope = Scope::new(&[], Some(&init_scope));
                     init_scope.bind(s, value.clone());
@@ -57,16 +57,16 @@ fn fn_let(
 }
 
 pub fn fn_begin(args: &[Rc<Object>], scope: &Rc<Scope>) -> Result<CallResult, EvalErr> {
-    if args.len() == 0 {
+    if args.is_empty() {
         return Ok(CallResult::Object(undef()));
     }
     for arg in &args[..args.len() - 1] {
         eval(arg, scope)?;
     }
-    return Ok(CallResult::TailCall(
+    Ok(CallResult::TailCall(
         args[args.len() - 1].clone(),
         scope.clone(),
-    ));
+    ))
 }
 
 /// There are two forms of define:
@@ -167,13 +167,13 @@ fn invoke(
                 Ok(CallResult::Object(args[0].clone()))
             };
         } else if s == "if" {
-            return fn_if(args, &scope);
+            return fn_if(args, scope);
         } else if s == "let" {
-            return fn_let(args, &scope, false, false);
+            return fn_let(args, scope, false, false);
         } else if s == "let*" {
-            return fn_let(args, &scope, true, false);
+            return fn_let(args, scope, true, false);
         } else if s == "letrec" {
-            return fn_let(args, &scope, false, true);
+            return fn_let(args, scope, false, true);
         } else if s == "begin" {
             return fn_begin(args.as_slice(), scope);
         } else if s == "define" {
@@ -182,9 +182,9 @@ fn invoke(
         } else if s == "lambda" {
             return Ok(CallResult::Object(lambda(args, scope)?));
         } else if s == "and" {
-            return Ok(logic_and(args, scope)?);
+            return logic_and(args, scope);
         } else if s == "or" {
-            return Ok(logic_or(args, scope)?);
+            return logic_or(args, scope);
         } else if s == "cond" {
             return cond(args, scope);
         } else if s == "apply" {

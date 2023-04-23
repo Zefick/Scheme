@@ -41,16 +41,16 @@ fn parse_number(source: &[char]) -> Result<(usize, Token), ParseErr> {
                 return Err(ParseErr::WrongFP);
             }
             real = true;
-        } else if !c.is_digit(10) {
+        } else if !c.is_ascii_digit() {
             break;
         }
         ptr += 1;
     }
-    let s: String = source[..ptr].into_iter().collect();
+    let s: String = source[..ptr].iter().collect();
     if real {
-        return Ok((ptr - 1, Token::Float(s.parse().unwrap())));
+        Ok((ptr - 1, Token::Float(s.parse().unwrap())))
     } else {
-        return Ok((ptr - 1, Token::Integer(s.parse().unwrap())));
+        Ok((ptr - 1, Token::Integer(s.parse().unwrap())))
     }
 }
 
@@ -59,7 +59,7 @@ fn parse_string(source: &[char]) -> Result<(usize, Token), ParseErr> {
     loop {
         if ptr < source.len() {
             if source[ptr] == '"' {
-                return Ok((ptr + 1, Token::String(source[..ptr].into_iter().collect())));
+                return Ok((ptr + 1, Token::String(source[..ptr].iter().collect())));
             }
             ptr += 1;
         } else {
@@ -72,13 +72,13 @@ fn parse_symbol(source: &[char]) -> (usize, Token) {
     let mut ptr = 1;
     while ptr < source.len() {
         let c = source[ptr];
-        if c.is_digit(10) || c.is_alphabetic() || SYMBOLS_ALLOWED.contains(c) {
+        if c.is_ascii_digit() || c.is_alphabetic() || SYMBOLS_ALLOWED.contains(c) {
             ptr += 1;
         } else {
             break;
         }
     }
-    return (ptr - 1, Token::Symbol(source[..ptr].into_iter().collect()));
+    (ptr - 1, Token::Symbol(source[..ptr].iter().collect()))
 }
 
 fn tokenize(source: &str) -> Result<Vec<Token>, ParseErr> {
@@ -100,7 +100,7 @@ fn tokenize(source: &str) -> Result<Vec<Token>, ParseErr> {
                 result.push(Token::Quote);
             } else if c == '.' {
                 result.push(Token::Dot);
-            } else if c.is_digit(10) {
+            } else if c.is_ascii_digit() {
                 let (p, token) = parse_number(&chars[ptr..])?;
                 ptr += p;
                 result.push(token);
