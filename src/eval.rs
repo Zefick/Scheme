@@ -155,6 +155,14 @@ pub fn eval(obj: &Rc<Object>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> 
     }
 }
 
+#[inline]
+pub fn eval_result(result: CallResult) -> Result<Rc<Object>, EvalErr> {
+    match result {
+        CallResult::Object(obj) => Ok(obj),
+        CallResult::TailCall(obj, scope) => eval(&obj, &scope),
+    }
+}
+
 fn invoke(
     obj: &Rc<Object>, args: Vec<Rc<Object>>, scope: &Rc<Scope>,
 ) -> Result<CallResult, EvalErr> {

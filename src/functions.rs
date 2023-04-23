@@ -117,7 +117,7 @@ pub fn fn_apply(vec: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<CallResult, E
     if vec.len() < 2 {
         return Err(EvalErr::NeedAtLeastArgs("apply".to_string(), 2, vec.len()));
     }
-    let first = eval(vec.get(0).unwrap(), scope)?;
+    let first = eval(&vec[0], scope)?;
     if let Object::Function(fun) = first.as_ref() {
         // concatenate first arguments with the last one presented as a list
         // e.g. (1 2 3 '(4 5)) => (1 2 3 4 5)
@@ -141,12 +141,12 @@ pub fn fn_map(vec: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     if vec.len() < 2 {
         return Err(EvalErr::NeedAtLeastArgs("map".to_string(), 2, vec.len()));
     }
-    let func = vec.get(0).unwrap();
-    if let Object::Function(_) = func.as_ref() {
-        // first check that all arguments are lists and have the same size
+    let func = &vec[0];
+    if let Object::Function(f) = func.as_ref() {
+        // first check that all arguments are lists of the same size
         let mut len = None;
         let mut inputs = Vec::new();
-        for arg in vec.iter().skip(1) {
+        for arg in vec[1..].iter() {
             let vec = list_to_vec(arg)?;
             if len.is_none() {
                 len = Some(vec.len());
@@ -158,11 +158,8 @@ pub fn fn_map(vec: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
         // then call a mapped function
         let mut result = Vec::new();
         for i in 0..len.unwrap() {
-            let args = vec_to_list(inputs.iter().map(|v| v[i].clone()).collect());
-            result.push(eval(
-                &Rc::new(Pair(func.clone(), Rc::new(args))),
-                &Rc::new(Scope::from_global()),
-            )?);
+            let args = inputs.iter().map(|v| v[i].clone()).collect();
+            result.push(eval_result(f.call(args)?)?);
         }
         Ok(Rc::new(vec_to_list(result)))
     } else {

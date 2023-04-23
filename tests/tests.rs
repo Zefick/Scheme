@@ -149,10 +149,11 @@ fn apply_and_map() {
     expect_err("(apply + 1 2 3)", EvalErr::ApplyNeedsProperList("3".to_string()));
     expect_err("(apply +)", EvalErr::NeedAtLeastArgs("apply".to_string(), 2, 1));
     assert_eval("(map list '(1 2 3))", "((1) (2) (3))");
-    // assert_eval("(map list '(1 2 (+ 1 2)))", "((1) (2) ((+ 1 2)))");
+    assert_eval("(map list '(1 2 (+ 1 2)))", "((1) (2) ((+ 1 2)))");
     assert_eval("(map list '(1 2 3) '(4 5 6))", "((1 4) (2 5) (3 6))");
     expect_err("(map + '(1 2) '(4 5 6))", EvalErr::UnequalMapLists());
     expect_err("(map +)", EvalErr::NeedAtLeastArgs("map".to_string(), 2, 1));
+    assert_eval("(map (lambda (x, y) (+ x y)) '())", "()");
 }
 
 #[test]
@@ -207,6 +208,7 @@ fn test_let() {
     
     assert_eval("(let ((x 2)) (map (lambda (y) (+ x y)) '(1 2 3)))", "(3 4 5)");
     assert_eval("(let ((f (lambda (y) (+ y 2)))) (map f '(1 2 3)))", "(3 4 5)");
+    assert_eval("(let ((x (lambda () '(1 2 3)))) (map + (x) (x)))", "(2 4 6)");
 
     assert_eval("
         (letrec
@@ -225,12 +227,12 @@ fn test_tail_call() {
     let scope = &Rc::new(Scope::from_global());
     
     // sum of 10000 consecutive integers
-    let seq_cum = "
+    let seq_sum = "
         (define (seq-sum n)
           (define (seq-sum n acc)
             (if (= 0 n)  acc (seq-sum (- n 1) (+ acc n))))
           (seq-sum n 0))";
-    eval_expr(seq_cum, scope).unwrap();
+    eval_expr(seq_sum, scope).unwrap();
     assert_eval_with_scope(scope, "(seq-sum 10000)", "50005000");
 
     // mutual recursion
@@ -243,4 +245,13 @@ fn test_tail_call() {
     eval_expr(is_odd, scope).unwrap();
     eval_expr(is_even, scope).unwrap();
     assert_eval_with_scope(scope, "(map even? '(10500 9999))", "(#t #f)");
+
+    // tail recursion with 'apply'
+    let seq_sum = "
+        (define (seq-sum n)
+          (define (seq-sum n acc)
+            (if (= 0 n) acc (apply seq-sum (list (- n 1) (+ acc n)))))
+          (seq-sum n 0))";
+    eval_expr(seq_sum, scope).unwrap();
+    assert_eval_with_scope(scope, "(seq-sum 10000)", "50005000");
 }
