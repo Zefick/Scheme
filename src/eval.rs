@@ -7,14 +7,6 @@ use crate::service::*;
 
 use std::rc::Rc;
 
-pub fn eval_args(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Vec<Rc<Object>>, EvalErr> {
-    let mut result = Vec::new();
-    for arg in args {
-        result.push(eval(&arg, scope)?);
-    }
-    Ok(result)
-}
-
 fn fn_let(
     let_args: Vec<Rc<Object>>, scope: &Rc<Scope>, star: bool, rec: bool,
 ) -> Result<CallResult, EvalErr> {
@@ -57,16 +49,14 @@ fn fn_let(
 }
 
 pub fn fn_begin(args: &[Rc<Object>], scope: &Rc<Scope>) -> Result<CallResult, EvalErr> {
-    if args.is_empty() {
-        return Ok(CallResult::Object(undef()));
+    if let [.., last] = args {
+        for arg in &args[..args.len() - 1] {
+            eval(arg, scope)?;
+        }
+        Ok(CallResult::TailCall(last.clone(), scope.clone()))
+    } else {
+        Ok(CallResult::Object(undef()))
     }
-    for arg in &args[..args.len() - 1] {
-        eval(arg, scope)?;
-    }
-    Ok(CallResult::TailCall(
-        args[args.len() - 1].clone(),
-        scope.clone(),
-    ))
 }
 
 /// There are two forms of define:
@@ -75,7 +65,7 @@ pub fn fn_begin(args: &[Rc<Object>], scope: &Rc<Scope>) -> Result<CallResult, Ev
 ///
 /// Both syntax handled by this function. Defined value added to a current scope
 fn fn_define(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<(), EvalErr> {
-    let head = args[0].clone();
+    let head = &args[0];
     match head.as_ref() {
         // (define x expr)
         Object::Symbol(s) => {
@@ -107,6 +97,7 @@ fn fn_define(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<(), EvalErr> {
     }
 }
 
+#[inline]
 fn lambda(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
     Ok(Rc::new(Function::new(
         "#<lambda>".to_string(),
@@ -123,9 +114,9 @@ pub fn eval(obj: &Rc<Object>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> 
         match obj.as_ref() {
             // resolve a symbol
             Object::Symbol(s) => {
-                return if (s.starts_with("c") && s.ends_with("r"))
+                return if (s.starts_with('c') && s.ends_with('r'))
                     && (s.len() >= 3 && s.len() <= 6)
-                    && (s[1..s.len() - 1].replace("a", "").replace("d", "")).is_empty()
+                    && (s[1..s.len() - 1].replace(['a', 'd'], "")).is_empty()
                 {
                     Ok(Rc::new(Object::Function(Function::Dynamic(s.clone()))))
                 } else {
@@ -155,25 +146,13 @@ pub fn eval(obj: &Rc<Object>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> 
     }
 }
 
-#[inline]
-pub fn eval_result(result: CallResult) -> Result<Rc<Object>, EvalErr> {
-    match result {
-        CallResult::Object(obj) => Ok(obj),
-        CallResult::TailCall(obj, scope) => eval(&obj, &scope),
-    }
-}
-
 fn invoke(
     obj: &Rc<Object>, args: Vec<Rc<Object>>, scope: &Rc<Scope>,
 ) -> Result<CallResult, EvalErr> {
     // special forms
     if let Object::Symbol(s) = obj.as_ref() {
         if s == "quote" {
-            return if args.len() != 1 {
-                Err(EvalErr::WrongAgrsNum("quote".to_string(), 1, args.len()))
-            } else {
-                Ok(CallResult::Object(args[0].clone()))
-            };
+            return Ok(CallResult::Object(expect_1_arg(args, "quote")?));
         } else if s == "if" {
             return fn_if(args, scope);
         } else if s == "let" {
@@ -204,4 +183,13 @@ fn invoke(
     } else {
         Err(EvalErr::IllegalObjectAsAFunction(obj.to_string()))
     }
+}
+
+#[inline]
+pub fn eval_args(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Vec<Rc<Object>>, EvalErr> {
+    let mut result = Vec::new();
+    for arg in args {
+        result.push(eval(&arg, scope)?);
+    }
+    Ok(result)
 }

@@ -1,12 +1,11 @@
 use crate::errors::EvalErr;
 use crate::eval::*;
+use crate::functions::CallResult;
 use crate::math::num_equal;
 use crate::object::Object;
 use crate::scope::Scope;
 use crate::service::*;
-use std::ops::Deref;
 
-use crate::functions::CallResult;
 use std::rc::Rc;
 
 fn make_boolean(b: bool) -> Rc<Object> {
@@ -25,13 +24,13 @@ pub fn cond(cond_list: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<CallResult,
         return Err(EvalErr::CondNeedsClause());
     }
     for condition in cond_list {
-        let vec = list_to_vec(condition.as_ref())?;
+        let vec = list_to_vec(&condition)?;
         if vec.is_empty() {
             return Err(EvalErr::CondEmptyClause());
         }
         let predicate = &vec[0];
         let mut is_true = false;
-        if &Object::Symbol("else".to_string()) == predicate.deref() {
+        if &Object::Symbol("else".to_string()) == predicate.as_ref() {
             is_true = true;
         } else {
             let x = eval(predicate, scope)?;

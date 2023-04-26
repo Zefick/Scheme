@@ -1,10 +1,10 @@
-use crate::eval::*;
+use crate::errors::EvalErr;
 use crate::object::Object;
+use crate::object::Object::Pair;
 use crate::scope::Scope;
 use crate::service::{list_to_vec, vec_to_list};
 
-use crate::errors::EvalErr;
-use crate::object::Object::Pair;
+use crate::eval::{eval, fn_begin};
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -49,7 +49,7 @@ impl Function {
                             }
                         }
                         Object::Symbol(s) => {
-                            scope.bind(s, Rc::new(vec_to_list(args[arg_num..].to_vec())));
+                            scope.bind(s, Rc::new(vec_to_list(&args[arg_num..])));
                             break;
                         }
                         Object::Nil => {
@@ -58,7 +58,7 @@ impl Function {
                             }
                             break;
                         }
-                        _ => return Err(EvalErr::WrongArgsList(vec_to_list(args).to_string())),
+                        _ => return Err(EvalErr::WrongArgsList(vec_to_list(&args).to_string())),
                     }
                     arg_num += 1;
                 }
@@ -103,7 +103,7 @@ impl Function {
     }
 }
 
-impl PartialEq<Self> for Function {
+impl PartialEq for Function {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Function::Dynamic(s1), Function::Dynamic(s2)) => s1 == s2,
@@ -159,9 +159,12 @@ pub fn fn_map(vec: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
         let mut result = Vec::new();
         for i in 0..len.unwrap() {
             let args = inputs.iter().map(|v| v[i].clone()).collect();
-            result.push(eval_result(f.call(args)?)?);
+            match f.call(args)? {
+                CallResult::Object(obj) => result.push(obj),
+                CallResult::TailCall(obj, scope) => result.push(eval(&obj, &scope)?),
+            };
         }
-        Ok(Rc::new(vec_to_list(result)))
+        Ok(Rc::new(vec_to_list(&result)))
     } else {
         Err(EvalErr::IllegalObjectAsAFunction(func.to_string()))
     }

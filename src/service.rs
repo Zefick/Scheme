@@ -22,9 +22,10 @@ pub fn list_to_vec(obj: &Object) -> Result<Vec<Rc<Object>>, EvalErr> {
 /// Converts Vec of references to a list object.
 ///
 /// This function always succeeds.
-pub fn vec_to_list(vec: Vec<Rc<Object>>) -> Object {
-    vec.into_iter()
-        .rfold(Object::Nil, |tail, elem| Object::Pair(elem, Rc::new(tail)))
+pub fn vec_to_list(vec: &[Rc<Object>]) -> Object {
+    vec.into_iter().rfold(Object::Nil, |tail, elem| {
+        Object::Pair(elem.clone(), Rc::new(tail))
+    })
 }
 
 /// Ensures that given object is a list with length `n`
@@ -38,7 +39,7 @@ pub fn expect_args(vec: Vec<Rc<Object>>, func: &str, n: usize) -> Result<Vec<Rc<
 
 /// Checks that taken object is a list with one element and returns the element or error
 pub fn expect_1_arg(vec: Vec<Rc<Object>>, func: &str) -> Result<Rc<Object>, EvalErr> {
-    expect_args(vec, func, 1).map(|vec| vec[0].clone())
+    Ok(expect_args(vec, func, 1)?[0].clone())
 }
 
 /// Checks that taken object is a list of two elements
@@ -46,7 +47,8 @@ pub fn expect_1_arg(vec: Vec<Rc<Object>>, func: &str) -> Result<Rc<Object>, Eval
 pub fn expect_2_args(
     vec: Vec<Rc<Object>>, func: &str,
 ) -> Result<(Rc<Object>, Rc<Object>), EvalErr> {
-    expect_args(vec, func, 2).map(|vec| (vec[0].clone(), vec[1].clone()))
+    let vec = expect_args(vec, func, 2)?;
+    Ok((vec[0].clone(), vec[1].clone()))
 }
 
 /// Ensures that given object is a pair or returns an Err.

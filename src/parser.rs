@@ -135,7 +135,7 @@ fn tokenize(source: &str) -> Result<Vec<Token>, ParseErr> {
  */
 pub fn parse_expression(source: &str) -> Result<Vec<Object>, ParseErr> {
     let tokens = &mut tokenize(source)?.into_iter();
-    let mut program = Vec::<Object>::new();
+    let mut program = vec![];
     while let Some(t) = tokens.next() {
         program.push(parse_object(t, tokens)?);
     }

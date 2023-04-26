@@ -20,7 +20,7 @@ pub fn cons(obj: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
 }
 
 pub fn list(obj: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
-    Ok(Rc::new(vec_to_list(obj)))
+    Ok(Rc::new(vec_to_list(&obj)))
 }
 
 pub fn length(obj: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {

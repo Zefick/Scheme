@@ -43,8 +43,8 @@ pub enum EvalErr {
 impl Error for EvalErr {}
 
 impl Error for ParseErr {}
-#[rustfmt::skip]
 
+#[rustfmt::skip]
 impl Display for ParseErr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
