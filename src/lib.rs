@@ -1,10 +1,10 @@
 pub mod errors;
 pub mod eval;
+pub mod functions;
 pub mod object;
 pub mod parser;
 pub mod scope;
 
-mod functions;
 mod lists;
 mod logic;
 mod math;

@@ -3,14 +3,16 @@ use crate::object::Object;
 use crate::object::Object::Pair;
 use crate::scope::Scope;
 use crate::service::{list_to_vec, vec_to_list};
-
 use crate::eval::{eval, fn_begin};
+
 use std::collections::HashSet;
 use std::rc::Rc;
 
+type RustFn = fn(Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr>;
+
 pub enum Function {
     Dynamic(String),
-    Pointer(fn(Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr>),
+    Pointer(RustFn),
     Object {
         name: String,
         args: Rc<Object>,
@@ -100,6 +102,10 @@ impl Function {
         }
         let func = Function::Object { name, args, body, scope };
         Ok(Object::Function(func))
+    }
+
+    pub fn from_pointer(f: RustFn) -> Object {
+        Object::Function(Function::Pointer(f))
     }
 }
 
