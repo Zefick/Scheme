@@ -8,7 +8,7 @@ enum Token {
     Rpar,
     Dot,
     Quote,
-    Integer(i32),
+    Integer(i64),
     Float(f64),
     Symbol(String),
     String(String),

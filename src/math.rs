@@ -9,7 +9,7 @@ use std::rc::Rc;
 fn normalize(x: Number) -> Number {
     if let Number::Float(f) = x {
         if f.floor() == f {
-            return Number::Integer(f as i32);
+            return Number::Integer(f as i64);
         }
     }
     x
@@ -146,7 +146,7 @@ pub fn num_minus(vec: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
 pub fn num_div(vec: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     let mut result = Number::Integer(1);
     for n in 0..vec.len() {
-        if let Object::Number(x) = vec.get(n).unwrap().as_ref() {
+        if let Object::Number(x) = vec[n].as_ref() {
             if n == 0 && vec.len() > 1 {
                 result = *x;
             } else {

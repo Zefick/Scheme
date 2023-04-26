@@ -25,7 +25,7 @@ pub fn list(obj: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
 
 pub fn length(obj: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {
     let len = list_to_vec(expect_1_arg(obj, "length")?.as_ref())?.len();
-    Ok(Rc::new(Object::make_int(len as i32)))
+    Ok(Rc::new(Object::make_int(len as i64)))
 }
 
 pub fn is_pair(obj: Vec<Rc<Object>>) -> Result<Rc<Object>, EvalErr> {

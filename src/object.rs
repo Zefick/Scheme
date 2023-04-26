@@ -5,7 +5,7 @@ use std::rc::Rc;
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum Number {
     Float(f64),
-    Integer(i32),
+    Integer(i64),
 }
 
 #[derive(PartialEq)]
@@ -23,7 +23,7 @@ impl Object {
     pub fn make_pair(a: Object, b: Object) -> Object {
         Object::Pair(Rc::new(a), Rc::new(b))
     }
-    pub fn make_int(value: i32) -> Object {
+    pub fn make_int(value: i64) -> Object {
         Object::Number(Number::Integer(value))
     }
     pub fn is_nil(&self) -> bool {
