@@ -31,27 +31,14 @@ impl ToString for Token {
 
 const SYMBOLS_ALLOWED: &str = "+-.*/<=>!?:$%_&~^#";
 
-fn parse_number(source: &[char]) -> Result<(usize, Token), ParseErr> {
-    let mut ptr = 1;
-    let mut real = false;
-    while ptr < source.len() {
-        let c = source[ptr];
-        if c == '.' {
-            if real {
-                return Err(ParseErr::WrongFP);
-            }
-            real = true;
-        } else if !c.is_ascii_digit() {
-            break;
-        }
-        ptr += 1;
-    }
-    let s: String = source[..ptr].iter().collect();
-    if real {
-        Ok((ptr - 1, Token::Float(s.parse().unwrap())))
-    } else {
-        Ok((ptr - 1, Token::Integer(s.parse().unwrap())))
-    }
+fn try_parse_number(s: String) -> Token {
+    s.parse::<i64>().map_or_else(
+        |_| {
+            s.parse::<f64>()
+                .map_or_else(|_| Token::Symbol(s), Token::Float)
+        },
+        Token::Integer,
+    )
 }
 
 fn parse_string(source: &[char]) -> Result<(usize, Token), ParseErr> {
@@ -68,7 +55,7 @@ fn parse_string(source: &[char]) -> Result<(usize, Token), ParseErr> {
     }
 }
 
-fn parse_symbol(source: &[char]) -> (usize, Token) {
+fn parse_symbol(source: &[char]) -> (usize, String) {
     let mut ptr = 1;
     while ptr < source.len() {
         let c = source[ptr];
@@ -78,7 +65,7 @@ fn parse_symbol(source: &[char]) -> (usize, Token) {
             break;
         }
     }
-    (ptr - 1, Token::Symbol(source[..ptr].iter().collect()))
+    (ptr - 1, source[..ptr].iter().collect())
 }
 
 fn tokenize(source: &str) -> Result<Vec<Token>, ParseErr> {
@@ -100,18 +87,14 @@ fn tokenize(source: &str) -> Result<Vec<Token>, ParseErr> {
                 result.push(Token::Quote);
             } else if c == '.' {
                 result.push(Token::Dot);
-            } else if c.is_ascii_digit() {
-                let (p, token) = parse_number(&chars[ptr..])?;
-                ptr += p;
-                result.push(token);
             } else if c == '"' {
                 let (p, token) = parse_string(&chars[ptr + 1..])?;
                 ptr += p;
                 result.push(token);
-            } else if c.is_alphabetic() || SYMBOLS_ALLOWED.contains(c) {
+            } else if c.is_alphanumeric() || SYMBOLS_ALLOWED.contains(c) {
                 let r = parse_symbol(&chars[ptr..]);
                 ptr += r.0;
-                result.push(r.1);
+                result.push(try_parse_number(r.1));
             }
             ptr += 1;
         } else {
@@ -226,14 +209,20 @@ mod tests {
                    vec![Token::String("str".to_string()),
                         Token::Symbol("symbol".to_string())]);
 
-        assert_eq!(tokenize("42 3.14").unwrap(),
-                   vec![Token::Integer(42), Token::Float(3.14)]);
+        assert_eq!(tokenize("42\"hi\"-3.14e-15").unwrap(),
+                    vec![Token::Integer(42),
+                         Token::String("hi".to_string()),
+                         Token::Float(-3.14e-15)]);
+
+        assert_eq!(tokenize("4.5.2 --3.14 2-3").unwrap(),
+                    vec![Token::Symbol("4.5.2".to_string()),
+                         Token::Symbol("--3.14".to_string()),
+                         Token::Symbol("2-3".to_string())]);
 
         assert_eq!(tokenize("\"\"").unwrap(), vec![Token::String("".to_string())]);
         assert_eq!(tokenize("\"❤\"").unwrap(), vec![Token::String("❤".to_string())]);
 
         expect_err("\"   ", ParseErr::UnclosedString);
-        expect_err("1.23.456", ParseErr::WrongFP);
     }
 
     #[test]

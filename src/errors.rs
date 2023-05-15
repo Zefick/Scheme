@@ -4,7 +4,6 @@ use std::fmt::{Debug, Display, Formatter};
 #[allow(non_camel_case_types)]
 #[derive(PartialEq)]
 pub enum ParseErr {
-    WrongFP,
     UnclosedString,
     Unexpected_EOF,
     Unexpected_EOF_AfterPars,
@@ -48,8 +47,6 @@ impl Error for ParseErr {}
 impl Display for ParseErr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParseErr::WrongFP =>
-                write!(f, "Wrong floating point formatting"),
             ParseErr::UnclosedString =>
                 write!(f, "String literal didn't close"),
             ParseErr::Unexpected_EOF =>
