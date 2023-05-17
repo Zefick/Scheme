@@ -66,6 +66,10 @@ fn get_global_scope() -> Scope {
         ("-", Function::from_pointer(num_minus)),
         ("*", Function::from_pointer(num_mul)),
         ("/", Function::from_pointer(num_div)),
+        ("quotient", Function::from_pointer(quotient)),
+        ("remainder", Function::from_pointer(remainder)),
+        ("modulo", Function::from_pointer(modulo)),
+
     ];
     Scope {
         map: RefCell::new(HashMap::from(

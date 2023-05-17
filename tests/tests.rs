@@ -133,10 +133,15 @@ fn test_math() {
     assert_eval("(list (-) (- 1) (- 1 2.5) (- 1 2 3))", "(0 -1 -1.5 -4)");
     assert_eval("(list (*) (* 2) (* 1 2 3.5))", "(1 2 7)");
     assert_eval("(list (/) (/ 2) (/ 2 1))", "(1 0.5 2)");
-    assert_eval("(list (integer? (/ 2 1)) (integer? (/ 1 2)))", "(#t #f)");
+    assert_eval("(integer? (/ (+ 3 5) (* 1 2)))", "#t");
+    assert_eval("(integer? (/ (+ 3 4) (* 1 2)))", "#f");
+    assert_eval("(list (quotient 13 4) (quotient -13 4) (quotient 13 -4) (quotient -13 -4))", "(3 -3 -3 3)");
+    assert_eval("(list (remainder 13 4) (remainder -13 4) (remainder 13 -4) (remainder -13 -4))", "(1 -1 1 -1)");
+    assert_eval("(list (modulo 13 4) (modulo -13 4) (modulo 13 -4) (modulo -13 -4))", "(1 3 -3 -1)");
     expect_err("(= 1 foo)", EvalErr::UnboundVariable("foo".to_string()));
     expect_err("(+ 1 'foo)", EvalErr::NumericArgsRequiredFor("+".to_string()));
     expect_err("(/ 1 2 0)", EvalErr::DivisionByZero());
+    expect_err("(modulo 13.5 4)", EvalErr::IntegerArgsRequiredFor("modulo".to_string()));
 }
 
 #[test]

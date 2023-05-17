@@ -19,6 +19,7 @@ pub enum EvalErr {
     ListRequired(String),
     UnboundVariable(String),
     NumericArgsRequiredFor(String),
+    IntegerArgsRequiredFor(String),
     DivisionByZero(),
     IllegalObjectAsAFunction(String),
     TooFewArguments(String),
@@ -85,6 +86,8 @@ impl Display for EvalErr {
                 write!(f, "Too many arguments given to {}", name),
             EvalErr::NumericArgsRequiredFor(name) =>
                 write!(f, "Numeric arguments required for {}", name),
+                EvalErr::IntegerArgsRequiredFor(name) =>
+                    write!(f, "Integer arguments required for {}", name),
             EvalErr::DivisionByZero() =>
                 write!(f, "Division by zero"),
             EvalErr::UnboundVariable(name) =>
