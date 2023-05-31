@@ -7,9 +7,7 @@ use crate::service::*;
 
 use std::rc::Rc;
 
-fn fn_let(
-    let_args: Vec<Rc<Object>>, scope: &Rc<Scope>, star: bool, rec: bool,
-) -> Result<CallResult, EvalErr> {
+fn fn_let(let_args: List, scope: &Rc<Scope>, star: bool, rec: bool) -> Result<CallResult, EvalErr> {
     if let_args.len() < 2 {
         return Err(EvalErr::NeedAtLeastArgs(
             "let".to_string(),
@@ -64,16 +62,15 @@ pub fn fn_begin(args: &[Rc<Object>], scope: &Rc<Scope>) -> Result<CallResult, Ev
 /// `(define id expr)` and `(define (id args...) expr...)`
 ///
 /// Both syntax handled by this function. Defined value added to a current scope
-fn fn_define(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<(), EvalErr> {
+fn fn_define(args: List, scope: &Rc<Scope>) -> Result<(), EvalErr> {
     let head = &args[0];
     match head.as_ref() {
         // (define x expr)
         Object::Symbol(s) => {
             if args.len() > 2 {
-                Err(EvalErr::TooManyArguments("define".to_string()))
+                return Err(EvalErr::TooManyArguments("define".to_string()));
             } else {
                 scope.bind(s, eval(&args[1], scope)?);
-                Ok(())
             }
         }
         // (define (name args) body)
@@ -88,23 +85,23 @@ fn fn_define(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<(), EvalErr> {
                         Rc::clone(scope),
                     )?),
                 );
-                Ok(())
             } else {
-                Err(EvalErr::ExpectedSymbolForFunctionName(name.to_string()))
+                return Err(EvalErr::ExpectedSymbolForFunctionName(name.to_string()));
             }
         }
-        x => Err(EvalErr::WrongDefineArgument(x.to_string())),
+        x => return Err(EvalErr::WrongDefineArgument(x.to_string())),
     }
+    Ok(())
 }
 
 #[inline]
-fn lambda(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
-    Ok(Rc::new(Function::new(
+fn lambda(args: List, scope: &Rc<Scope>) -> Result<CallResult, EvalErr> {
+    Ok(CallResult::Object(Rc::new(Function::new(
         "#<lambda>".to_string(),
         Rc::clone(&args[0]),
         args[1..].to_vec(),
         Rc::clone(scope),
-    )?))
+    )?)))
 }
 
 pub fn eval(obj: &Rc<Object>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> {
@@ -146,9 +143,7 @@ pub fn eval(obj: &Rc<Object>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> 
     }
 }
 
-fn invoke(
-    obj: &Rc<Object>, args: Vec<Rc<Object>>, scope: &Rc<Scope>,
-) -> Result<CallResult, EvalErr> {
+fn invoke(obj: &Rc<Object>, args: List, scope: &Rc<Scope>) -> Result<CallResult, EvalErr> {
     // special forms
     if let Object::Symbol(s) = obj.as_ref() {
         if s == "quote" {
@@ -167,7 +162,7 @@ fn invoke(
             fn_define(args, scope)?;
             return Ok(CallResult::Object(Rc::new(Object::Nil)));
         } else if s == "lambda" {
-            return Ok(CallResult::Object(lambda(args, scope)?));
+            return lambda(args, scope);
         } else if s == "and" {
             return logic_and(args, scope);
         } else if s == "or" {
@@ -175,7 +170,7 @@ fn invoke(
         } else if s == "cond" {
             return cond(args, scope);
         } else if s == "apply" {
-            return fn_apply(args, scope);
+            return fn_apply(eval_args(args, scope)?);
         }
     }
     if let Object::Function(fun) = eval(obj, scope)?.as_ref() {
@@ -186,7 +181,7 @@ fn invoke(
 }
 
 #[inline]
-pub fn eval_args(args: Vec<Rc<Object>>, scope: &Rc<Scope>) -> Result<Vec<Rc<Object>>, EvalErr> {
+fn eval_args(args: List, scope: &Rc<Scope>) -> Result<List, EvalErr> {
     let mut result = Vec::new();
     for arg in args {
         result.push(eval(&arg, scope)?);

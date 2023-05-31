@@ -29,7 +29,6 @@ pub enum EvalErr {
     ExpectedSymbolForFunctionName(String),
     ExpectedSymbolForArgument(String),
     ArgumentDuplication(String),
-    WrongArgsList(String),
     ApplyNeedsProperList(String),
     UnequalMapLists(),
     LetNeedSymbolForBinding(String),
@@ -86,8 +85,8 @@ impl Display for EvalErr {
                 write!(f, "Too many arguments given to {}", name),
             EvalErr::NumericArgsRequiredFor(name) =>
                 write!(f, "Numeric arguments required for {}", name),
-                EvalErr::IntegerArgsRequiredFor(name) =>
-                    write!(f, "Integer arguments required for {}", name),
+            EvalErr::IntegerArgsRequiredFor(name) =>
+                write!(f, "Integer arguments required for {}", name),
             EvalErr::DivisionByZero() =>
                 write!(f, "Division by zero"),
             EvalErr::UnboundVariable(name) =>
@@ -108,8 +107,6 @@ impl Display for EvalErr {
                 write!(f, "'let' needs a list of length 2 for binding, got '{}'", obj),
             EvalErr::WrongDefineArgument(obj) =>
                 write!(f, "Wrong first argument for 'define': {}", obj),
-            EvalErr::WrongArgsList(obj) =>
-                write!(f, "Wrong arguments list syntax: {}", obj),
             EvalErr::CondNeedsClause() =>
                 write!(f, "'cond' needs at least 1 clause"),
             EvalErr::CondEmptyClause() =>

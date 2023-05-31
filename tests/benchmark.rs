@@ -168,7 +168,7 @@ fn benchmark_map() {
 #[rustfmt::skip]
 fn behchmark_primes() {
 
-    const N : i64 = 10_000;
+    const N : i64 = 5_000;
 
     let test_fn = |n| {
         let mut acc = 0;

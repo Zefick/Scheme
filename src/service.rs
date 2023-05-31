@@ -2,11 +2,11 @@
 //! comfortable work with Scheme's object from Rust.
 
 use crate::errors::EvalErr;
-use crate::object::Object;
+use crate::object::{List, Object};
 use std::rc::Rc;
 
 /// Converts lists to Vec of references to its elements.
-pub fn list_to_vec(obj: &Object) -> Result<Vec<Rc<Object>>, EvalErr> {
+pub fn list_to_vec(obj: &Object) -> Result<List, EvalErr> {
     let mut result = Vec::new();
     let mut tail = obj;
     while let Object::Pair(a, b) = tail {
@@ -23,37 +23,33 @@ pub fn list_to_vec(obj: &Object) -> Result<Vec<Rc<Object>>, EvalErr> {
 ///
 /// This function always succeeds.
 pub fn vec_to_list(vec: &[Rc<Object>]) -> Object {
-    vec.into_iter().rfold(Object::Nil, |tail, elem| {
+    vec.iter().rfold(Object::Nil, |tail, elem| {
         Object::Pair(elem.clone(), Rc::new(tail))
     })
 }
 
 /// Ensures that given object is a list with length `n`
-pub fn expect_args(vec: Vec<Rc<Object>>, func: &str, n: usize) -> Result<Vec<Rc<Object>>, EvalErr> {
-    if vec.len() != n {
-        Err(EvalErr::WrongAgrsNum(func.to_string(), n, vec.len()))
+pub fn expect_args(args: List, func: &str, n: usize) -> Result<List, EvalErr> {
+    if args.len() != n {
+        Err(EvalErr::WrongAgrsNum(func.to_string(), n, args.len()))
     } else {
-        Ok(vec)
+        Ok(args)
     }
 }
 
 /// Checks that taken object is a list with one element and returns the element or error
-pub fn expect_1_arg(vec: Vec<Rc<Object>>, func: &str) -> Result<Rc<Object>, EvalErr> {
-    Ok(expect_args(vec, func, 1)?[0].clone())
+pub fn expect_1_arg(args: List, func: &str) -> Result<Rc<Object>, EvalErr> {
+    Ok(expect_args(args, func, 1)?[0].clone())
 }
 
 /// Checks that taken object is a list of two elements
 /// and returns a tuple of this elements or error
-pub fn expect_2_args(
-    vec: Vec<Rc<Object>>, func: &str,
-) -> Result<(Rc<Object>, Rc<Object>), EvalErr> {
-    let vec = expect_args(vec, func, 2)?;
+pub fn expect_2_args(args: List, func: &str) -> Result<(Rc<Object>, Rc<Object>), EvalErr> {
+    let vec = expect_args(args, func, 2)?;
     Ok((vec[0].clone(), vec[1].clone()))
 }
 
 /// Ensures that given object is a pair or returns an Err.
-/// Since Rust doesn't support types for enum variants,
-/// we are forced to use a tuple for the Ok value.
 pub fn check_pair(obj: &Object) -> Result<(&Rc<Object>, &Rc<Object>), EvalErr> {
     match obj {
         Object::Pair(x, y) => Ok((x, y)),

@@ -19,6 +19,8 @@ pub enum Object {
     Function(Function),
 }
 
+pub type List = Vec<Rc<Object>>;
+
 impl Object {
     pub fn make_pair(a: Object, b: Object) -> Object {
         Object::Pair(Rc::new(a), Rc::new(b))
@@ -51,7 +53,6 @@ impl Debug for Object {
 }
 
 /// Display provides prettier output of lists then Debug
-#[rustfmt::skip]
 impl Display for Object {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         if let Object::Pair(head, tail) = self {
@@ -66,7 +67,7 @@ impl Display for Object {
             }
             write!(f, "({}{})", head, s)
         } else {
-            write!(f, "{:?}", self)
+            (self as &dyn Debug).fmt(f)
         }
     }
 }
