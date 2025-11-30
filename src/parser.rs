@@ -132,7 +132,11 @@ pub fn parse_expression(source: &str) -> Result<Vec<Object>, ParseErr> {
  */
 fn parse_object(first: Token, rest: &mut dyn Iterator<Item = Token>) -> Result<Object, ParseErr> {
     match first {
-        Token::Symbol(s) => Ok(Object::Symbol(s)),
+        Token::Symbol(s) => Ok(match s.as_str() {
+            "#t" => Object::Boolean(true),
+            "#f" => Object::Boolean(false),
+            _ => Object::Symbol(s),
+        }),
         Token::String(s) => Ok(Object::String(s)),
         Token::Float(value) => Ok(Object::Number(Number::Float(value))),
         Token::Integer(value) => Ok(Object::Number(Number::Integer(value))),
@@ -233,6 +237,9 @@ mod tests {
 
         assert_eq!(parse_expression("(1)").unwrap(),
                    vec![Object::make_pair(Object::make_int(1), Object::Nil)]);
+
+        assert_eq!(parse_expression("#t").unwrap(),
+                    vec![Object::Boolean(true)]);
 
         assert_eq!(parse_expression("(1 . a)").unwrap(),
                    vec![Object::make_pair(Object::make_int(1),

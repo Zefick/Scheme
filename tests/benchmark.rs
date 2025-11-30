@@ -205,9 +205,9 @@ fn behchmark_primes() {
         (define (count-primes-acc n acc)
             (if (= n 1)
                 acc
-                (if (prime? n 2)
-                    (count-primes-acc (- n 1) (+ acc 1))
-                    (count-primes-acc (- n 1) acc))))
+                (count-primes-acc
+                    (- n 1)
+                    (if (prime? n 2) (+ acc 1) acc))))
         (define (count-primes n)
             (count-primes-acc n 0))";
 

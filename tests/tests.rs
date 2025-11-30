@@ -98,11 +98,11 @@ fn logic_functions() {
     assert_eval("(or 5 foo #f)", "5");
     expect_err("(or #f foo)", EvalErr::UnboundVariable("foo".to_string()));
     assert_eval("(and 5 'foo 42)", "42");
-    assert_eval("(list (boolean? #f) (boolean? 5))", "(#t #f)");
-    assert_eval("(list (null? #t) (null? '(5)) (null? '()) (null? (cdr '(5))))", "(#f #f #t #t)");
-    assert_eval("(list (pair? '(1 2)) (pair? 5))", "(#t #f)");
-    assert_eval("(list (list? '(1 2)) (list? 5) (list? '(1 . 2)))", "(#t #f #f)");
-    assert_eval("(list (not #f) (not 5))", "(#t #f)");
+    assert_eval("(map boolean? (list #f 5 (= 1 2)))", "(#t #f #t)");
+    assert_eval("(map null? (list #t 5 () (cdr '(a))))", "(#f #f #t #t)");
+    assert_eval("(map pair? '((1 2) 5 ()))", "(#t #f #f)");
+    assert_eval("(map list? '((1 2) 5 (1 . 2) ()))", "(#t #f #f #t)");
+    assert_eval("(map not '(#f 5 () 0))", "(#t #f #f #f)");
 }
 
 #[test]
