@@ -5,3 +5,4 @@ authors = ["Zefick"]
 edition = "2018"
 
 [dependencies]
+ahash = "0.8"

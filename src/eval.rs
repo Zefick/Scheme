@@ -42,7 +42,7 @@ fn fn_let(let_args: List, scope: &Rc<Scope>, star: bool, rec: bool) -> Result<Ca
     }
     fn_begin(
         &let_args[1..],
-        &Rc::new(Scope::new(bindings.as_slice(), scope)),
+        &Rc::new(Scope::new_owned(bindings, scope)),
     )
 }
 

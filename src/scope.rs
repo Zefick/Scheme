@@ -4,13 +4,14 @@ use crate::logic::*;
 use crate::math::*;
 use crate::object::*;
 
+use ahash::RandomState;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Scope {
-    map: RefCell<HashMap<String, Rc<Object>>>,
+    map: RefCell<HashMap<String, Rc<Object>, RandomState>>,
     parent: Option<Rc<Scope>>,
 }
 
@@ -23,9 +24,16 @@ impl Scope {
         self.map.borrow_mut().insert(key.to_string(), value);
     }
     pub fn new(items: &[(String, Rc<Object>)], parent: &Rc<Scope>) -> Self {
-        let mut scope = HashMap::new();
+        let mut scope = HashMap::with_capacity_and_hasher(items.len(), RandomState::new());
         for item in items {
             scope.insert(item.0.clone(), Rc::clone(&item.1));
+        }
+        Scope { map: RefCell::new(scope), parent: Some(parent.clone()) }
+    }
+    pub fn new_owned(items: Vec<(String, Rc<Object>)>, parent: &Rc<Scope>) -> Self {
+        let mut scope = HashMap::with_capacity_and_hasher(items.len(), RandomState::new());
+        for (key, value) in items {
+            scope.insert(key, value);
         }
         Scope { map: RefCell::new(scope), parent: Some(parent.clone()) }
     }
@@ -71,10 +79,9 @@ fn get_global_scope() -> Scope {
         ("modulo", Function::from_pointer(modulo)),
 
     ];
-    Scope {
-        map: RefCell::new(HashMap::from(
-            bindings.map(|(s, obj)| (s.to_string(), Rc::new(obj))),
-        )),
-        parent: None,
+    let mut map = HashMap::with_capacity_and_hasher(bindings.len(), RandomState::new());
+    for (s, obj) in bindings {
+        map.insert(s.to_string(), Rc::new(obj));
     }
+    Scope { map: RefCell::new(map), parent: None }
 }
