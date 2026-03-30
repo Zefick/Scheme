@@ -67,7 +67,9 @@ fn fn_define(args: List, scope: &Rc<Scope>) -> Result<(), EvalErr> {
     match head.as_ref() {
         // (define x expr)
         Object::Symbol(s) => {
-            if args.len() > 2 {
+            if args.len() < 2 {
+                return Err(EvalErr::TooFewArguments("define".to_string()));
+            } else if args.len() > 2 {
                 return Err(EvalErr::TooManyArguments("define".to_string()));
             } else {
                 scope.bind(s, eval(&args[1], scope)?);
@@ -96,6 +98,12 @@ fn fn_define(args: List, scope: &Rc<Scope>) -> Result<(), EvalErr> {
 
 #[inline]
 fn lambda(args: List, scope: &Rc<Scope>) -> Result<CallResult, EvalErr> {
+    if args.len() < 2 {
+        return Err(EvalErr::TooFewArguments("lambda".to_string()));
+    }
+    if args.len() > 2 {
+        return Err(EvalErr::TooManyArguments("lambda".to_string()));
+    }
     Ok(CallResult::Object(Rc::new(Function::new(
         "#<lambda>".to_string(),
         Rc::clone(&args[0]),

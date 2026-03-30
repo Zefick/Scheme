@@ -73,6 +73,7 @@ fn let_and_define() {
     assert_eval("(begin (define x 5) (cons (begin (define x 2) x) x))", "(2 . 2)");
     assert_eval("(begin (define (x a) (car a)) (x '(5 6)))", "5");
     assert_eval("(begin (define (tail a . b) b) (tail 1 2 3))", "(2 3)");
+    expect_err("(define x)", EvalErr::TooFewArguments("define".to_string()));
     expect_err("(define 5)", EvalErr::WrongDefineArgument("5".to_string()));
     expect_err("(define (5))", EvalErr::ExpectedSymbolForFunctionName("5".to_string()));
     expect_err("(define (f x))", EvalErr::EmptyFunctionBody());
@@ -85,6 +86,8 @@ fn lambda() {
     assert_eval("((lambda x x) 1 2 3)", "(1 2 3)");
     assert_eval("((lambda (x . y) y) 1 2 3)", "(2 3)");
     assert_eval("(begin (define f (lambda (x) x)) (f 'foo))", "foo");
+    expect_err("(lambda 1)", EvalErr::TooFewArguments("lambda".to_string()));
+    expect_err("(lambda 1 2 3)", EvalErr::TooManyArguments("lambda".to_string()));
     expect_err("(lambda (1) a)", EvalErr::ExpectedSymbolForArgument("1".to_string()));
     expect_err("(lambda (x x) x)", EvalErr::ArgumentDuplication("x".to_string()));
     expect_err("((lambda (a b) a) 1)", EvalErr::TooFewArguments("#<lambda>".to_string()));
