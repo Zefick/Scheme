@@ -51,9 +51,10 @@ fn benchmark_loops() {
     let scope = Rc::new(Scope::from_global());
     scope.bind("seq-sum", Rc::new(Function::from_pointer(seq_sum)));
     let scale = 100;
+    let code = format!("(seq-sum {})", N);
     let start = Instant::now();
     for _ in 0..LOOP * scale {
-        let sum = eval_expr(&format!("(seq-sum {})", N), &scope).unwrap();
+        let sum = eval_expr(&code, &scope).unwrap();
         assert_eq!(sum.to_string(), reference_sum.to_string());
     }
     let elapsed = start.elapsed().div_f64(scale as f64);
@@ -65,9 +66,10 @@ fn benchmark_loops() {
         (define (seq-sum n)
             (if (= 0 n)  0 (+ n (seq-sum (- n 1)))))";
     eval_expr(seq_sum, &scope).unwrap();
+    let code = format!("(seq-sum {})", N);
     let start = Instant::now();
     for _ in 0..LOOP {
-        let sum = eval_expr(&format!("(seq-sum {})", N), &scope).unwrap();
+        let sum = eval_expr(&code, &scope).unwrap();
         assert_eq!(sum.to_string(), reference_sum.to_string());
     }
     let elapsed = start.elapsed();
@@ -81,9 +83,10 @@ fn benchmark_loops() {
                 (if (= 0 n)  acc (seq-sum (- n 1) (+ acc n))))
             (seq-sum n 0))";
     eval_expr(seq_sum, &scope).unwrap();
+    let code = format!("(seq-sum {})", N);
     let start = Instant::now();
     for _ in 0..LOOP {
-        let sum = eval_expr(&format!("(seq-sum {})", N), &scope).unwrap();
+        let sum = eval_expr(&code, &scope).unwrap();
         assert_eq!(sum.to_string(), reference_sum.to_string());
     }
     let elapsed = start.elapsed();
@@ -127,9 +130,9 @@ fn benchmark_map() {
     let reference_time = start.elapsed().div_f64(scale as f64);
     println!(" {:<20} {:12?}", "Rust zip + map", reference_time);
 
+    let map1 = format!("(map * '{} '{})", arr_to_string(&arr1), arr_to_string(&arr2));
     let start = Instant::now();
     let scope = Rc::new(Scope::from_global());
-    let map1 = format!("(map * '{} '{})", arr_to_string(&arr1), arr_to_string(&arr2));
     let scale = 10;
     for _ in 0..LOOP * scale {
         let res = eval_expr(&map1, &scope).unwrap();

@@ -32,7 +32,7 @@ fn fn_let(let_args: List, scope: &Rc<Scope>, star: bool, rec: bool) -> Result<Ca
                 if rec {
                     root_scope.bind(s, value.clone());
                 }
-                bindings.push((s.to_string(), value.clone()));
+                bindings.push((s.to_string(), value));
             } else {
                 return Err(EvalErr::LetNeedSymbolForBinding(var.to_string()));
             }
@@ -121,7 +121,7 @@ pub fn eval(obj: &Rc<Object>, scope: &Rc<Scope>) -> Result<Rc<Object>, EvalErr> 
             Object::Symbol(s) => {
                 return if (s.starts_with('c') && s.ends_with('r'))
                     && (s.len() >= 3 && s.len() <= 6)
-                    && (s[1..s.len() - 1].replace(['a', 'd'], "")).is_empty()
+                    && s[1..s.len() - 1].chars().all(|c| c == 'a' || c == 'd')
                 {
                     Ok(Rc::new(Object::Function(Function::Dynamic(s.clone()))))
                 } else {
